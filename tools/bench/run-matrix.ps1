@@ -1186,7 +1186,16 @@ $jsonDoc = [ordered]@{
 #
 # 调试时用 -NoReport 跑一堆试错配置，如果连 JSON 都不写，
 # 就没有任何记录能追溯「上次那个数是从哪来的」。
-$jsonDoc | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $JsonPath -Encoding utf8
+# 路径归一化：把仓库根的绝对路径写成相对形式（.\target\bench\x.log）。
+#
+# 为什么必须做：这份 JSON 是**进版本控制**的测量记录。之前它存的是
+# 生成时的绝对路径，仓库一旦挪位置（换盘、换目录、别人 clone 到别处），
+# 所有 ServerLog / SenderLog 字段就指向不存在的文件，回看日志时全线报错。
+# 存相对仓库根的路径，挪多少次都还能解析。
+$jsonText = $jsonDoc | ConvertTo-Json -Depth 12
+$rootJsonForm = $RepoRoot.Replace('\', '\\')
+$jsonText = $jsonText.Replace($rootJsonForm, '.')
+[System.IO.File]::WriteAllText($JsonPath, $jsonText, [System.Text.UTF8Encoding]::new($false))
 Write-Host ''
 Write-Host ("已写入 " + $JsonPath) -ForegroundColor Green
 

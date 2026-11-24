@@ -3,13 +3,13 @@
 # 需要 --h264（否则没有编码器可调），并且要造出真实拥塞让控制器降码率。
 # 造法：--loss 0.10 让丢包率高到控制器必须降。
 
-$log = 'D:\dsh-workspace\sidelens\target\bitrate-feedback.log'
+$root = Split-Path -Parent $PSScriptRoot
+$log = Join-Path $root 'target\bitrate-feedback.log'
 Remove-Item $log -ErrorAction SilentlyContinue
 function W($m) { Add-Content $log $m -Encoding utf8 }
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$root = 'D:\dsh-workspace\sidelens'
 $d = "$root\target\debug\sidelensd.exe"
 $s = "$root\target\debug\sidelenssend.exe"
 

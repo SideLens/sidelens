@@ -1,11 +1,13 @@
 # 正确的 A/B：走完整 start() 流程 ± AddRegistryEntry
-$log = 'D:\dsh-workspace\sidelens\target\vcam-ab2.log'
+$root = Split-Path -Parent $PSScriptRoot
+
+$log = Join-Path $root 'target\vcam-ab2.log'
 Remove-Item $log -ErrorAction SilentlyContinue
 Add-Content $log "=== A/B v2 $(Get-Date -Format 'HH:mm:ss') ==="
 Add-Content $log "管理员: $((New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))"
 Add-Content $log ''
 
-$exe = 'D:\dsh-workspace\sidelens\target\release\sidelensd.exe'
+$exe = (Join-Path $root 'target\release\sidelensd.exe')
 
 foreach ($mode in @('baseline','regentry')) {
   Add-Content $log "########## $mode ##########"

@@ -3,13 +3,13 @@
 # 修复前：shrink/grow 从未被调用，target_ms 恒为 20.0，playable p50 约 20.95ms
 # 修复后：adapt 按实测抖动调整，回环抖动 <1ms 应把 target 降到 min_ms=10
 
-$log = 'D:\dsh-workspace\sidelens\target\jitter-adapt.log'
+$root = Split-Path -Parent $PSScriptRoot
+$log = Join-Path $root 'target\jitter-adapt.log'
 Remove-Item $log -ErrorAction SilentlyContinue
 function W($m) { Add-Content $log $m -Encoding utf8 }
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$root = 'D:\dsh-workspace\sidelens'
 $d = "$root\target\debug\sidelensd.exe"
 $s = "$root\target\debug\sidelenssend.exe"
 

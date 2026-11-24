@@ -1,7 +1,9 @@
 # 提权验证：设官方 SDK 设备接口属性后重跑 vcam probe
 #
 # 用法：由非管理员进程用 Start-Process -Verb RunAs 启动
-$log = 'D:\dsh-workspace\sidelens\target\vcam-elevated.log'
+$root = Split-Path -Parent $PSScriptRoot
+
+$log = Join-Path $root 'target\vcam-elevated.log'
 Remove-Item $log -ErrorAction SilentlyContinue
 Add-Content $log "=== 提权验证开始 $(Get-Date -Format 'HH:mm:ss') ==="
 Add-Content $log "当前身份: $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)"
@@ -12,7 +14,7 @@ Add-Content $log ''
 Remove-Item "$env:TEMP\sidelens-vcam.log" -ErrorAction SilentlyContinue
 
 Add-Content $log '=== 跑 probe（新增 IsVirtualCamera 等官方属性）==='
-& 'D:\dsh-workspace\sidelens\target\release\sidelensd.exe' --vcam-probe --hold 8 --no-inproc-class *>&1 | Add-Content $log
+& (Join-Path $root 'target\release\sidelensd.exe') --vcam-probe --hold 8 --no-inproc-class *>&1 | Add-Content $log
 
 Add-Content $log ''
 Add-Content $log '=== 检查设备上的 IsVirtualCamera 属性 ==='

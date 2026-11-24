@@ -56,12 +56,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-0.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-0.snd.out.log"
+        "server": ".\\target\\bench\\loss-0.srv.out.log",
+        "sender": ".\\target\\bench\\loss-0.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-0.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-0.snd.out.log",
+        "ServerLog": ".\\target\\bench\\loss-0.srv.out.log",
+        "SenderLog": ".\\target\\bench\\loss-0.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9100,
@@ -141,12 +141,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-3.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-3.snd.out.log"
+        "server": ".\\target\\bench\\loss-3.srv.out.log",
+        "sender": ".\\target\\bench\\loss-3.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-3.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-3.snd.out.log",
+        "ServerLog": ".\\target\\bench\\loss-3.srv.out.log",
+        "SenderLog": ".\\target\\bench\\loss-3.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9101,
@@ -226,12 +226,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-5.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-5.snd.out.log"
+        "server": ".\\target\\bench\\loss-5.srv.out.log",
+        "sender": ".\\target\\bench\\loss-5.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-5.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-5.snd.out.log",
+        "ServerLog": ".\\target\\bench\\loss-5.srv.out.log",
+        "SenderLog": ".\\target\\bench\\loss-5.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9102,
@@ -311,12 +311,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-10.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-10.snd.out.log"
+        "server": ".\\target\\bench\\loss-10.srv.out.log",
+        "sender": ".\\target\\bench\\loss-10.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-10.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\loss-10.snd.out.log",
+        "ServerLog": ".\\target\\bench\\loss-10.srv.out.log",
+        "SenderLog": ".\\target\\bench\\loss-10.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9103,
@@ -396,12 +396,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-2k.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-2k.snd.out.log"
+        "server": ".\\target\\bench\\size-2k.srv.out.log",
+        "sender": ".\\target\\bench\\size-2k.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-2k.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-2k.snd.out.log",
+        "ServerLog": ".\\target\\bench\\size-2k.srv.out.log",
+        "SenderLog": ".\\target\\bench\\size-2k.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9104,
@@ -481,12 +481,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-8k.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-8k.snd.out.log"
+        "server": ".\\target\\bench\\size-8k.srv.out.log",
+        "sender": ".\\target\\bench\\size-8k.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-8k.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-8k.snd.out.log",
+        "ServerLog": ".\\target\\bench\\size-8k.srv.out.log",
+        "SenderLog": ".\\target\\bench\\size-8k.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9105,
@@ -566,12 +566,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-16k.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-16k.snd.out.log"
+        "server": ".\\target\\bench\\size-16k.srv.out.log",
+        "sender": ".\\target\\bench\\size-16k.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-16k.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-16k.snd.out.log",
+        "ServerLog": ".\\target\\bench\\size-16k.srv.out.log",
+        "SenderLog": ".\\target\\bench\\size-16k.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9106,
@@ -651,12 +651,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-64k.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-64k.snd.out.log"
+        "server": ".\\target\\bench\\size-64k.srv.out.log",
+        "sender": ".\\target\\bench\\size-64k.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-64k.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\size-64k.snd.out.log",
+        "ServerLog": ".\\target\\bench\\size-64k.srv.out.log",
+        "SenderLog": ".\\target\\bench\\size-64k.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9107,
@@ -736,12 +736,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-off.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-off.snd.out.log"
+        "server": ".\\target\\bench\\fec-off.srv.out.log",
+        "sender": ".\\target\\bench\\fec-off.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-off.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-off.snd.out.log",
+        "ServerLog": ".\\target\\bench\\fec-off.srv.out.log",
+        "SenderLog": ".\\target\\bench\\fec-off.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9108,
@@ -821,12 +821,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-1.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-1.snd.out.log"
+        "server": ".\\target\\bench\\fec-1.srv.out.log",
+        "sender": ".\\target\\bench\\fec-1.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-1.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-1.snd.out.log",
+        "ServerLog": ".\\target\\bench\\fec-1.srv.out.log",
+        "SenderLog": ".\\target\\bench\\fec-1.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9109,
@@ -906,12 +906,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-2.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-2.snd.out.log"
+        "server": ".\\target\\bench\\fec-2.srv.out.log",
+        "sender": ".\\target\\bench\\fec-2.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-2.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-2.snd.out.log",
+        "ServerLog": ".\\target\\bench\\fec-2.srv.out.log",
+        "SenderLog": ".\\target\\bench\\fec-2.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9110,
@@ -991,12 +991,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-3.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-3.snd.out.log"
+        "server": ".\\target\\bench\\fec-3.srv.out.log",
+        "sender": ".\\target\\bench\\fec-3.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-3.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\fec-3.snd.out.log",
+        "ServerLog": ".\\target\\bench\\fec-3.srv.out.log",
+        "SenderLog": ".\\target\\bench\\fec-3.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9111,
@@ -1076,12 +1076,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\audio-on.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\audio-on.snd.out.log"
+        "server": ".\\target\\bench\\audio-on.srv.out.log",
+        "sender": ".\\target\\bench\\audio-on.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\audio-on.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\audio-on.snd.out.log",
+        "ServerLog": ".\\target\\bench\\audio-on.srv.out.log",
+        "SenderLog": ".\\target\\bench\\audio-on.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9112,
@@ -1161,12 +1161,12 @@
       "status": "ok",
       "note": "",
       "logs": {
-        "server": "D:\\dsh-workspace\\sidelens\\target\\bench\\stress.srv.out.log",
-        "sender": "D:\\dsh-workspace\\sidelens\\target\\bench\\stress.snd.out.log"
+        "server": ".\\target\\bench\\stress.srv.out.log",
+        "sender": ".\\target\\bench\\stress.snd.out.log"
       },
       "metrics": {
-        "ServerLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\stress.srv.out.log",
-        "SenderLog": "D:\\dsh-workspace\\sidelens\\target\\bench\\stress.snd.out.log",
+        "ServerLog": ".\\target\\bench\\stress.srv.out.log",
+        "SenderLog": ".\\target\\bench\\stress.snd.out.log",
         "Receiver": {
           "stats_windows": 4,
           "bound_port": 9113,

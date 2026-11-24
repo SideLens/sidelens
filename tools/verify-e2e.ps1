@@ -27,7 +27,7 @@
 param(
     [string]$Only = "",
     [switch]$Quick,
-    [string]$Root = "D:\dsh-workspace\sidelens"
+    [string]$Root = (Split-Path -Parent $PSScriptRoot)
 )
 
 $ErrorActionPreference = "Continue"

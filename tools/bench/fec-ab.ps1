@@ -16,7 +16,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = 'D:\dsh-workspace\sidelens'
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $OutDir) { $OutDir = Join-Path $RepoRoot 'target\fecab' }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 

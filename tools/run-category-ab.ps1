@@ -22,7 +22,9 @@
 #   2. 跑两轮，第二轮顺序反转（both → fsm → vc），看结果是否随顺序变
 #
 # 只有「同一类别在两轮里行为一致」才算有效观测。
-$log = 'D:\dsh-workspace\sidelens\target\vcam-category-ab.log'
+$root = Split-Path -Parent $PSScriptRoot
+
+$log = Join-Path $root 'target\vcam-category-ab.log'
 Remove-Item $log -ErrorAction SilentlyContinue
 function W($m) { Add-Content $log $m -Encoding utf8 }
 
@@ -34,7 +36,7 @@ W "身份: $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)"
 W "管理员: $((New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))"
 W ''
 
-$exe = 'D:\dsh-workspace\sidelens\target\debug\sidelensd.exe'
+$exe = (Join-Path $root 'target\debug\sidelensd.exe')
 $vc  = '{e5323777-f976-4f5b-9b55-b94699c46e44}'
 $fsm = '{588c8d20-c0e3-4fd3-b511-8f2f692156f8}'
 

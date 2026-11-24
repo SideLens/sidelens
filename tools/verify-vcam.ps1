@@ -4,7 +4,7 @@
 #
 # 用法：
 #   Windows 终端(管理员)
-#   cd D:\dsh-workspace\sidelens
+#   cd <仓库根>   # 脚本会自动 Set-Location，这里只是示意
 #   .\tools\verify-vcam.ps1
 
 $ErrorActionPreference = 'Stop'

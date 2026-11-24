@@ -5,13 +5,13 @@
 # 首传已 mark 过同一 seq → 重传被判 Duplicate → replay_rejected += 1 → continue。
 # 也就是说：开加密后，重传一次都不会生效。
 
-$log = 'D:\dsh-workspace\sidelens\target\replay-retx.log'
+$root = Split-Path -Parent $PSScriptRoot
+$log = Join-Path $root 'target\replay-retx.log'
 Remove-Item $log -ErrorAction SilentlyContinue
 function W($m) { Add-Content $log $m -Encoding utf8 }
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$root = 'D:\dsh-workspace\sidelens'
 $d  = "$root\target\release\sidelensd.exe"
 $s  = "$root\target\release\sidelenssend.exe"
 
