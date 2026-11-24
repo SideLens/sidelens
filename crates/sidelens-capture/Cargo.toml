@@ -1,0 +1,33 @@
+[package]
+name = "sidelens-capture"
+description = "SideLens 屏幕采集层：GDI BitBlt 基线 + DXGI Desktop Duplication（Windows）+ headless 合成源"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+# 在 workspace 的 feature 集之上**额外**加这几个 Win32 feature：
+#
+# - Win32_Graphics_Gdi：BitBlt / CreateDIBSection / EnumDisplayMonitors
+# - Win32_Graphics_Dxgi(+_Common)：Desktop Duplication
+# - Win32_Graphics_Direct3D(+11)：staging 纹理与 CopyResource
+# - Win32_UI_WindowsAndMessaging：GetWindowRect / IsWindow
+# - Win32_UI_HiDpi：SetProcessDpiAwarenessContext
+#
+# HiDpi 是**必须**的，不是可选优化：进程默认是 DPI-unaware，Windows 会对
+# 所有「显示器坐标」做虚拟化缩放（3840x2160 的屏报成 1920x1080），
+# 而 DXGI 的 duplication 给的是**真实**尺寸。两边对不上时，
+# GDI 采到的是左上角一块被缩放的图，DXGI 采到的是全尺寸图，
+# 表现为「同一个源两个后端给出不同分辨率」。
+windows = { workspace = true, features = [
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_HiDpi",
+] }

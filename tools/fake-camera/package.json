@@ -1,0 +1,14 @@
+{
+  "name": "@sidelens/fake-camera",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@sidelens/proto": "workspace:*",
+    "@sidelens/core": "workspace:*"
+  }
+}

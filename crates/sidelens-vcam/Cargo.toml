@@ -1,0 +1,31 @@
+[package]
+name = "sidelens-vcam"
+description = "SideLens 虚拟摄像头（Windows MFCreateVirtualCamera）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+sidelens-proto = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+sidelens-ipc = { workspace = true }
+windows = { workspace = true }
+windows-core = { workspace = true }
+
+# dev-dependencies 也必须做同样的 target 限定。
+#
+# # 为什么（cross-platform.md P2）
+#
+# 上面做了 `cfg(windows)` 限定，下面没做 —— 这是个**不对称**的疏漏，
+# 而且很难发现：在非 Windows target 上跑 `cargo check -p sidelens-vcam
+# --tests` 时，构建日志里会出现 `Compiling windows-implement` ——
+# windows crate 真的被拉进构建图编了一遍，只是编成空 crate 而已。
+#
+# 测试代码本身也全是 Windows 专属的（要 CoInitializeEx、要 MF），
+# 所以整块一起限定是唯一正确的写法。
+[target.'cfg(windows)'.dev-dependencies]
+windows = { workspace = true }
+windows-core = { workspace = true }
+sidelens-ipc = { workspace = true }

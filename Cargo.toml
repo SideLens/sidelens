@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sidelens-proto",
+    "crates/sidelens-core",
+    "crates/sidelens-transport",
+    "apps/sidelensd",
+    "apps/sidelenssend",
+    "crates/sidelens-vcam",
+    "crates/sidelens-vcam-dll",
+    "crates/sidelens-codec",
+    "crates/sidelens-ipc",
+    "crates/sidelens-crypto",
+    "crates/sidelens-codec-opus",
+    "crates/sidelens-codec-mf",
+    "crates/sidelens-render",
+    "crates/sidelens-audio-out",
+    "crates/sidelens-audio-in",
+    "crates/sidelens-capture",
+    "crates/sidelens-render-gpu",
+    "crates/sidelens-ui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+sidelens-proto = { path = "crates/sidelens-proto" }
+sidelens-core = { path = "crates/sidelens-core" }
+sidelens-transport = { path = "crates/sidelens-transport" }
+sidelens-vcam = { path = "crates/sidelens-vcam" }
+sidelens-codec = { path = "crates/sidelens-codec" }
+sidelens-ipc = { path = "crates/sidelens-ipc" }
+sidelens-crypto = { path = "crates/sidelens-crypto" }
+sidelens-codec-opus = { path = "crates/sidelens-codec-opus" }
+sidelens-codec-mf = { path = "crates/sidelens-codec-mf" }
+sidelens-render = { path = "crates/sidelens-render" }
+sidelens-audio-out = { path = "crates/sidelens-audio-out" }
+sidelens-audio-in = { path = "crates/sidelens-audio-in" }
+sidelens-capture = { path = "crates/sidelens-capture" }
+sidelens-render-gpu = { path = "crates/sidelens-render-gpu" }
+sidelens-ui = { path = "crates/sidelens-ui" }
+
+serde = "1"
+serde_json = "1"
+tokio = { version = "1.54", features = ["rt-multi-thread", "net", "time", "sync", "macros", "io-util"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tokio-tungstenite = "0.30"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+windows-core = "0.62"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Devices_Properties",
+    "Win32_System_SystemInformation",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_System_Threading",
+    "Win32_System_Registry",
+    "Win32_Security",
+    "Win32_Media_MediaFoundation",
+    "Win32_Media_KernelStreaming",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Memory",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

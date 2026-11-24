@@ -1,0 +1,65 @@
+[package]
+name = "sidelensd"
+description = "SideLens 电脑端常驻服务"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sidelensd"
+path = "src/main.rs"
+
+# 平台无关的依赖放在这里。
+#
+# # 曾经踩过的坑（cross-platform.md P1）
+#
+# 第一版把 tokio / anyhow / tracing / tracing-subscriber / serde_json
+# **全部**写进了下面的 `[target.'cfg(windows)'.dependencies]`，理由是
+# 「这个 daemon 只在 Windows 上跑」。但源码里这五个 crate 是**无条件**
+# 使用的（tokio 15 处、tracing 8 处、anyhow 6 处…），把它们放进 target
+# 限定块意味着：在非 Windows target 上 `cargo check` 会因为「找不到
+# crate」而失败 —— 看起来像移植问题，实际是依赖声明写错了位置。
+#
+# 判据很简单：**target 限定块只放真正平台专属的东西**（windows crate、
+# 平台 API 绑定）。跨平台库即使当前只有 Windows 在用，也该放在普通
+# dependencies 里 —— 否则将来加第二个平台时会被这个假象误导。
+[dependencies]
+sidelens-proto = { workspace = true }
+sidelens-core = { workspace = true }
+sidelens-transport = { workspace = true }
+sidelens-codec = { workspace = true }
+# 帧解密 + 重放防护（跨平台纯逻辑）
+sidelens-crypto = { workspace = true }
+# Opus 解码（与发送端共用同一个 crate，保证两端参数一致）
+sidelens-codec-opus = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
+# H.264 解码器（第三十八轮接入）。
+# 放 target 限定块：它是 Media Foundation 专属，非 Windows 上没有实现。
+sidelens-codec-mf = { workspace = true }
+# 渲染层（第三十九轮接入）。NV12 转 RGBA + GDI 显示。
+# 转换层是跨平台的，但 `Renderer` 是 Windows 专属。
+sidelens-render = { workspace = true }
+# GPU 渲染层（第五十二轮接入）。D3D11 + DXGI flip-model swap chain，
+# NV12 零拷贝上屏。实测 1080p p50 437µs vs GDI 7456µs（17.1x）。
+# 通过 `SIDELENS_RENDER=gpu` 启用，默认仍走 GDI（保持历史数据可比）。
+sidelens-render-gpu = { workspace = true }
+# 原生 UI（第五十三轮接入）。纯 Win32 控件，不用 webview。
+# 通过 `SIDELENS_UI=1` 启用；默认关闭（保持命令行模式，历史数据可比）。
+#
+# 注意：本 crate 的 build.rs 只给自己的 examples 嵌了 comctl32 v6 manifest，
+# 库管不到最终 exe。sidelensd 自己的 build.rs 要再做一次，否则控件是 Win95 外观。
+sidelens-ui = { workspace = true }
+# 音频输出（第四十一轮接入）。WASAPI 共享模式，实测 18-32ms 延迟。
+# 放 target 限定块：WASAPI 是 Windows 专属，非 Windows 上整个 crate 没有实现。
+sidelens-audio-out = { workspace = true }
+windows-core = { workspace = true }
+sidelens-vcam = { workspace = true }
+sidelens-ipc = { workspace = true }

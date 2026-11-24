@@ -1,0 +1,14 @@
+{
+  "name": "@sidelens/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "bin": {
+    "sidelensd": "./src/cli.js"
+  },
+  "dependencies": {
+    "@sidelens/core": "workspace:*",
+    "@sidelens/proto": "workspace:*"
+  }
+}

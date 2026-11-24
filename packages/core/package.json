@@ -1,0 +1,15 @@
+{
+  "name": "@sidelens/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./hexdump": "./src/hexdump.js"
+  },
+  "dependencies": {
+    "@sidelens/proto": "workspace:*",
+    "ws": "^8.18.0"
+  }
+}

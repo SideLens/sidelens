@@ -1,0 +1,19 @@
+[package]
+name = "sidelens-vcam-dll"
+description = "SideLens 虚拟摄像头媒体源 DLL（被 FrameServer 加载）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "sidelens_vcam_dll"
+crate-type = ["cdylib"]
+
+[dependencies]
+sidelens-vcam = { workspace = true }
+sidelens-proto = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
+windows-core = { workspace = true }

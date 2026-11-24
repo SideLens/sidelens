@@ -1,0 +1,20 @@
+[package]
+name = "sidelens-audio-out"
+description = "SideLens 音频输出层：把 Opus 解出的 PCM 送进声卡（WASAPI 共享模式 + 无设备 headless 模式）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+# 只加一个 feature：Win32_Media_Audio（含 WASAPI 的 IAudioClient /
+# IAudioRenderClient / IMMDeviceEnumerator，以及 waveOut 全族）。
+#
+# 其余需要的 feature 在 workspace 根 Cargo.toml 里已经开好：
+#   - Win32_System_Com：CoCreateInstance / CoInitializeEx / CoTaskMemFree
+#   - Win32_System_Com_StructuredStorage + Win32_System_Variant：
+#     IMMDevice::Activate 被 windows crate 用 cfg(all(...)) 门控，
+#     缺这两个 feature 时 Activate 直接不存在（编译期报错，不是运行时）
+windows = { workspace = true, features = ["Win32_Media_Audio"] }

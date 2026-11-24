@@ -1,0 +1,21 @@
+[package]
+name = "sidelens-transport"
+description = "SideLens 传输层：WebSocket 实现 + 面向 QUIC 的抽象"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+sidelens-proto = { workspace = true }
+sidelens-core = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+futures-util = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+serde_json = { workspace = true }

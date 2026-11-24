@@ -1,0 +1,15 @@
+[package]
+name = "sidelens-codec-opus"
+description = "SideLens Opus 音频编解码（真实编码器封装）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+sidelens-codec = { workspace = true }
+# audiopus 的 msvc 目标自带预编译 libopus.lib（x64/x86 都有），
+# **不需要 cmake / ninja**。这一点很关键 —— 换成 opus / opusic-sys 那条链
+# 会在 build.rs 里调 cmake 编 C 源码，本机没装 cmake 就直接构建失败。
+# 实测：audiopus 从零编译 1.4 秒，opusic-sys 需要 cmake 且要 9 秒。
+audiopus = "0.2"

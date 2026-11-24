@@ -1,0 +1,41 @@
+[package]
+name = "sidelenssend"
+description = "SideLens 发送端（模拟手机）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sidelenssend"
+path = "src/main.rs"
+
+[dependencies]
+sidelens-proto = { workspace = true }
+sidelens-core = { workspace = true }
+# 音频帧的 PTS 发生器与抖动缓冲都在 codec 层（跨平台纯逻辑，
+# 不含编码器），发送端要用 AudioPacer，接收端要用 AudioJitterBuffer
+sidelens-codec = { workspace = true }
+sidelens-transport = { workspace = true }
+# 帧加密：ChaCha20-Poly1305 + X25519（跨平台纯逻辑）
+sidelens-crypto = { workspace = true }
+# 真实 Opus 编解码（audiopus，msvc 自带预编译 libopus，无需 cmake）
+sidelens-codec-opus = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# 真实 H.264 编码（Media Foundation MFT）
+#
+# 只在 Windows 上存在：非 Windows 上这个 crate 只有 EncoderError 类型，
+# 没有 H264Encoder。发送端的 `--h264` 分支因此整块 cfg 门控 ——
+# 不加门控会让 Linux 构建直接炸掉（见 docs/cross-platform.md）。
+[target.'cfg(windows)'.dependencies]
+sidelens-codec-mf = { workspace = true }
+# 真实音频采集（WASAPI 麦克风 / loopback）。
+# 与 audio-out 同理：非 Windows 上没有实现，调用处整块 cfg 门控。
+sidelens-audio-in = { workspace = true }
+# 屏幕采集（DXGI Desktop Duplication / GDI BitBlt）。
+# 产出 NV12 且尺寸 16 对齐，与 sidelens-codec-mf 的编码器输入直接对齐。
+sidelens-capture = { workspace = true }

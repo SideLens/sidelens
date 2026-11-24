@@ -1,0 +1,15 @@
+[package]
+name = "sidelens-audio-in"
+description = "SideLens 音频采集层：麦克风 / 系统回环 PCM 采集（WASAPI 共享模式 + 无设备 headless 模式）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+# 与 sidelens-audio-out 同构：只额外开 Win32_Media_Audio。
+# 注意 windows crate 的 feature 是**可叠加**的，每个 crate 自己声明自己需要的，
+# 不要在 workspace 根 Cargo.toml 里堆。
+windows = { workspace = true, features = ["Win32_Media_Audio"] }

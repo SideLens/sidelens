@@ -1,0 +1,27 @@
+[package]
+name = "sidelens-render-gpu"
+description = "SideLens GPU 渲染层：D3D11 + DXGI flip-model swap chain，NV12 零拷贝上屏"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = [
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    # WaitForSingleObject —— flip-model 的帧延迟可等待句柄靠它做非阻塞探测
+    "Win32_System_Threading",
+] }
+
+[target.'cfg(windows)'.dev-dependencies]
+# examples/bench_present.rs 要把 GDI 和 GPU 两条路径放在同一台机器上对比，
+# 所以需要 GDI 实现本身。只是 dev-dependency：本 crate 的库代码**不依赖**
+# sidelens-render，主控接线时可以只挑一条路径编进去。
+sidelens-render = { workspace = true }

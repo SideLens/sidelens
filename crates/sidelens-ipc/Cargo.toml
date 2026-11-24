@@ -1,0 +1,12 @@
+[package]
+name = "sidelens-ipc"
+description = "SideLens 进程间帧传输（命名管道 + 共享内存）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }

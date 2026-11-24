@@ -1,0 +1,10 @@
+[package]
+name = "sidelens-proto"
+description = "SideLens 帧协议：编解码、magic 重同步、控制帧 JSON"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde_json = { workspace = true }

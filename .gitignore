@@ -1,0 +1,21 @@
+# Node
+node_modules/
+dist/
+
+# Rust
+/target/
+**/*.rs.bk
+
+# 通用
+*.log
+.DS_Store
+Thumbs.db
+
+# 生成产物（不进版本控制）
+.xplat-results.txt
+*.manifest
+
+# 运行期日志与截图（e2e 脚本会产出）
+/target/
+*.png
+!docs/preview.png

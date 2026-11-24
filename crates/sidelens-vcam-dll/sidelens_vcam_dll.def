@@ -1,0 +1,13 @@
+; SideLens 虚拟摄像头 DLL 导出表
+;
+; 这四组是 COM in-proc server 的标准导出。
+; 用 .def 而不是 __declspec(dllexport)，因为：
+;   1. 名字必须精确（不能被 Rust 的 name mangling 影响）
+;   2. 链接器要求这些符号标记为 PRIVATE，避免外部误链接
+
+LIBRARY sidelens_vcam_dll
+EXPORTS
+    DllCanUnloadNow     PRIVATE
+    DllGetClassObject   PRIVATE
+    DllRegisterServer   PRIVATE
+    DllUnregisterServer PRIVATE

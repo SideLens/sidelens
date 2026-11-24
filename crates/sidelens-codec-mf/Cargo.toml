@@ -1,0 +1,26 @@
+[package]
+name = "sidelens-codec-mf"
+description = "SideLens H.264 编码器（Windows Media Foundation MFT）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+# nalu.rs 的 Annex-B 切分 / 关键帧判断 / AVCC 互转全部复用 codec 层，
+# 不在这里重写一遍 —— 两套实现迟早会分叉。
+sidelens-codec = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# 在 workspace 的 feature 集之上**额外**加一个 Win32_System_Ole：
+#
+# ICodecAPI::SetValue 吃的是 VARIANT，而 windows crate 把 VARIANT 的
+# 定义门控在 Win32_System_Ole 之下（grep windows-0.62.2 的
+# Win32/System/Variant/mod.rs，VARIANT / VARIANT_0 / VARIANT_0_0 全部是
+# #[cfg(all(feature = "Win32_System_Com", feature = "Win32_System_Ole"))]）。
+# 不加这个 feature，SetValue 在 ICodecAPI 上根本不存在 —— 报错是
+# "no method named SetValue"，而不是"缺 feature"，很容易查错方向。
+#
+# 只在**本 crate** 加，不动 workspace 根 Cargo.toml 的 feature 列表。
+windows = { workspace = true, features = ["Win32_System_Ole"] }
+windows-core = { workspace = true }

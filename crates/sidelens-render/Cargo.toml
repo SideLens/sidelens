@@ -1,0 +1,28 @@
+[package]
+name = "sidelens-render"
+description = "SideLens 渲染层：NV12 → RGBA 转换 + Win32 GDI 显示窗口（含无窗口 headless 模式）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+# 在 workspace 的 feature 集之上**额外**加两个 Win32 feature：
+#
+# - Win32_Graphics_Gdi：StretchDIBits / BITMAPINFO / HDC
+# - Win32_UI_WindowsAndMessaging：RegisterClassExW / CreateWindowExW / 消息循环
+#
+# 这两个 feature 只在**本 crate** 加，不动 workspace 根 Cargo.toml —— 别的 crate
+# 一个 GDI 符号都不用，加了只会拖慢它们的编译。
+windows = { workspace = true, features = [
+    "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(windows)'.dev-dependencies]
+# examples/decode_to_render.rs 要跑真链路（编码 → 解码 → NV12 → RGBA）。
+# 只是 dev-dependency：本 crate 的库代码**不依赖** codec-mf，
+# 转换层仍然可以脱离解码器单独使用。
+sidelens-codec-mf = { workspace = true }

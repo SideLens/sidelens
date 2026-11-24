@@ -1,0 +1,34 @@
+{
+  "name": "sidelens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SideLens — 把手机变成电脑的摄像头与麦克风（demo）",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "vp run receiver",
+    "server": "vp run server",
+    "sender": "vp run sender",
+    "receiver": "node apps/receiver/src/cli.js",
+    "demo": "node tools/run-demo.js",
+    "test": "vp test run",
+    "rust:test": "cargo test",
+    "rust:fmt": "cargo fmt --all",
+    "rust:lint": "cargo clippy --all-targets -- -D warnings",
+    "rust:bench": "cargo run --release -p sidelens-proto --example bench",
+    "golden": "node tools/gen-golden.mjs",
+    "rust:build": "cargo build --release",
+    "rust:serve": "./target/release/sidelensd.exe 27100",
+    "rust:send": "./target/release/sidelenssend.exe ws://127.0.0.1:27100 60 8192 10",
+    "rust:serve:udp": "./target/release/sidelensd.exe --udp 27200",
+    "rust:send:udp": "./target/release/sidelenssend.exe --udp 127.0.0.1:27200 60 8192 10 --loss 0.03"
+  },
+  "devDependencies": {
+    "@sidelens/sender": "workspace:*",
+    "@sidelens/receiver": "workspace:*",
+    "vitest": "^5.1.0"
+  }
+}
