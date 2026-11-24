@@ -24,7 +24,10 @@
     "rust:serve": "./target/release/sidelensd.exe 27100",
     "rust:send": "./target/release/sidelenssend.exe ws://127.0.0.1:27100 60 8192 10",
     "rust:serve:udp": "./target/release/sidelensd.exe --udp 27200",
-    "rust:send:udp": "./target/release/sidelenssend.exe --udp 127.0.0.1:27200 60 8192 10 --loss 0.03"
+    "rust:send:udp": "./target/release/sidelenssend.exe --udp 127.0.0.1:27200 60 8192 10 --loss 0.03",
+    "clean:target": "pwsh -NoProfile -File tools/clean-target.ps1",
+    "clean:target:dry": "pwsh -NoProfile -File tools/clean-target.ps1 -DryRun",
+    "clean:all": "pwsh -NoProfile -File tools/clean-target.ps1 -All"
   },
   "devDependencies": {
     "@sidelens/sender": "workspace:*",

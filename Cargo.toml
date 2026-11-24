@@ -53,10 +53,18 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 windows-core = "0.62"
+# windows crate 的体积随 feature 数线性增长：本项目开 15 个 feature 时，
+# release 的 libwindows.rlib 就有 105 MB、rmeta 100 MB，是全仓最大的单个产物。
+#
+# 裁剪原则：
+#   1. 只留源码里真正 use 到的命名空间。Win32_System_SystemInformation 曾在此，
+#      但全仓无一处引用（GetSystemInfo 系列没用过），已移除。
+#   2. 不能按「源码没引用」删 Win32_Security —— CreateFileW / CreateNamedPipeW /
+#      CreateEventW / CreateFileMappingW 都依赖它做前置，删了 sidelens-ipc 直接 E0432。
+#   3. 加新 feature 前先 grep 确认用法，改完跑 cargo check --workspace --all-targets。
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Devices_Properties",
-    "Win32_System_SystemInformation",
     "Win32_System_Com",
     "Win32_System_LibraryLoader",
     "Win32_System_Com_StructuredStorage",

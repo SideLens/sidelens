@@ -95,7 +95,26 @@ cargo build --release
 覆盖：基础 UDP、3% 丢包 + NACK、H.264 编解码、Opus 音频、帧加密、FEC 关键帧保护、**真实屏幕采集**、**真实音频 loopback**。
 退出码 0/1，可直接接 CI。
 
-### 4. 最小验证（不需要界面）
+### 4. 清理 target（建议每次大改后跑一次）
+
+`target/` 会无上限膨胀，cargo **自己不会清理**。三条来源：
+
+| 来源 | 机制 | 实测占用 |
+| --- | --- | --- |
+| `build/<包>/<hash>/` 重复实例 | hash 含 feature 组合与 rustc 版本，任一项变了就建新目录，旧的不删 | debug 302 MB + release 105 MB |
+| 交叉编译产物 | `cargo check --target <非本机>` 每个 triple 一整套依赖树 | 5 个 target 约 1.1 GB |
+| bench 日志 | `run-matrix.ps1` 每组配置 4 个日志 | 56 个文件 |
+
+```powershell
+vp run clean:target:dry    # 先看能回收多少，不删
+vp run clean:target        # 真删（保留最新实例，构建不会重编）
+vp run clean:all           # 等价 cargo clean，全量重编
+```
+
+`verify-cross-platform.ps1` 已改为把交叉产物导到 `target/xplat` 并跑完即删，
+默认不再污染主 `target/`；加 `-Keep` 可保留产物用于排查。
+
+### 5. 最小验证（不需要界面）
 
 ```bash
 ./target/release/sidelensd.exe --udp 27200
