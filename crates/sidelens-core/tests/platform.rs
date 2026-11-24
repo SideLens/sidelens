@@ -26,17 +26,59 @@ const REAL_PLATFORMS: [Platform; 6] = [
 // 1. 平台身份
 // ---------------------------------------------------------------------------
 
-/// 当前开发环境是 Windows，`current()` 必须认出来
+/// `current()` 必须与编译目标一致
 ///
-/// 这条断言的意义不在「Windows 是 Windows」，而在于证明
-/// `cfg!` 的判定链没写反 —— 比如把 `target_os = "macos"` 写在前面
-/// 却打错了字，这里会立刻发现。
+/// # 这条测试在修什么（第六十一轮）
+///
+/// 原来它硬编码 `Platform::Windows`，理由是「开发机是 Windows」。
+/// 但那是**把开发环境当成了被测性质** —— 在 Linux / macOS 上跑必然失败，
+/// 而失败信息看起来像「移植有问题」，实际是测试写错了。
+///
+/// 在 WSL 里跑 Linux 原生测试时实测：
+///
+/// ```text
+/// left: Linux
+/// right: Windows
+/// ```
+///
+/// 这条测试的**真实意图**是「证明 `cfg!` 判定链没写反」（比如把
+/// `target_os = "macos"` 的字符串打错字，或者两个分支写反）。
+/// 那个意图用「按 `cfg!` 反推期望值」就能达成，且**在任何平台都成立**。
+///
+/// # 为什么这个写法仍然能抓到错误
+///
+/// 如果 `Platform::current()` 里某个 `cfg!` 分支打错字（比如
+/// `target_os = "linx"`），那个分支永远不成立，函数会落到兜底分支 ——
+/// 而兜底是 `Unknown`。下面的断言会立刻发现「期望 Linux 实际 Unknown」。
 #[test]
-fn current_platform_is_windows_on_dev_machine() {
+fn current_platform_matches_compile_target() {
+    // 按 cfg! 反推期望值 —— 与 `Platform::current()` 内部用的是同一组条件，
+    // 但**独立写一遍**（不是调用它），这样两边写错任一处都会不一致。
+    let expect = if cfg!(target_os = "windows") {
+        Platform::Windows
+    } else if cfg!(target_os = "macos") {
+        Platform::MacOs
+    } else if cfg!(target_os = "linux") {
+        Platform::Linux
+    } else if cfg!(target_os = "android") {
+        Platform::Android
+    } else if cfg!(target_os = "ios") {
+        Platform::Ios
+    } else if cfg!(target_env = "ohos") {
+        Platform::HarmonyOs
+    } else {
+        Platform::Unknown
+    };
     assert_eq!(
         Platform::current(),
-        Platform::Windows,
-        "当前开发环境是 Windows，Platform::current() 应返回 Windows"
+        expect,
+        "Platform::current() 与编译目标不一致（cfg! 判定链可能写错）"
+    );
+    // 兜底分支也要能被识别：如果落到 Unknown，说明所有条件都没匹配上
+    assert_ne!(
+        Platform::current(),
+        Platform::Unknown,
+        "当前编译目标未被 Platform::current() 识别 —— 检查 cfg! 字符串是否拼错"
     );
 }
 
