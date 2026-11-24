@@ -657,4 +657,16 @@ Rust 的 `cc` crate（绝大多数依赖链都会用到）需要 C 编译器。
 
 ### 状态
 
-阻塞（需要用户提供 sudo 权限或手动安装一次）
+**已解除（第六十一轮）**。用户提供了 root 密码，执行：
+
+```bash
+apt-get install -y build-essential pkg-config libasound2-dev
+apt-get install -y autoconf automake libtool
+```
+
+第二组是关键 —— `audiopus_sys` 需要 `autoreconf` 构建捆绑的 Opus。
+
+解除后的成果：Linux 上编译出可执行文件、核心测试全过、端到端 UDP 三档场景跑通。
+
+**遗留**：`libopus.so.0` 未进系统库路径，运行需要设 `LD_LIBRARY_PATH`。
+生产部署应改用 `cargo install`（处理 rpath）或静态链接。

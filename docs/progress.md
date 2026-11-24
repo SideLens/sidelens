@@ -50,6 +50,7 @@
 | cargo fmt --check | 通过 |
 | cargo clippy -D warnings | 通过 |
 | 跨平台 check（5 target） | **通过**（含 audio-in / audio-out / capture） |
+| **Linux 真实运行** | **✅ 核心测试全过 + 端到端 UDP 跑通** |
 
 ## 关键实测数字
 
@@ -6421,3 +6422,132 @@ fmt / clippy    0 / CLEAN
 
 要真验证，可以写一个「主动销毁设备」的测试钩子 —— 但那是侵入性的，
 且 `ID3D11Device` 没有公开的「模拟丢失」接口。已记为已知限制。
+
+## 第六十一轮：git init + Linux 真实运行（第一次跑通）
+
+### 一、git init（用户授权后执行）
+
+```text
+4d23711  初始提交：SideLens 端到端可运行（60 轮开发）
+669c07f  修正 platform 测试硬编码 Windows + 补充 .gitignore
+```
+
+- **303 个文件 / 96,334 行**
+- `target/`（23.5 GB）和 `node_modules/`（40 MB）已正确排除
+- 补了 `.gitignore`：`.xplat-results.txt`、`*.manifest`、运行期截图
+
+**为什么这件事重要**：第五十五轮我一次正则失误把 `processor.rs`（21,880 字节）
+清空成 1 字节，**没有任何备份可恢复**，只能完整重写。现在不会了。
+
+### 二、Linux 真实运行（B8 解除）
+
+之前 WSL 里缺 C 编译器，`rustc` 报 `linker cc not found`。用户提供了 root 密码后：
+
+```bash
+apt-get install -y build-essential pkg-config libasound2-dev
+apt-get install -y autoconf automake libtool
+```
+
+**第二个包组是关键**：`audiopus_sys` 需要 `autoreconf` 来构建捆绑的 Opus，
+缺了会报 `autogen.sh: 14: autoreconf: not found`。
+
+### 三、Linux 上的实测结果
+
+**编译**：
+
+```text
+cargo build --release -p sidelens-proto -p sidelens-core -p sidelens-transport -p sidelens-crypto
+  Finished `release` profile [optimized] target(s) in 19.64s
+
+cargo build --release -p sidelensd -p sidelenssend
+  Finished `release` profile [optimized] target(s) in 2m 54s
+  sidelensd      2,676,120 字节
+  sidelenssend   2,577,752 字节
+```
+
+**测试**：核心 4 个 crate 在 Linux 上**全部通过**（26 个测试套件，0 失败）。
+
+**端到端 UDP**：
+
+| 场景 | 接收端 | 发送端 |
+| --- | --- | --- |
+| 无丢包 | `frames=481` `playable_ms="16.94/20.70"` `av_synced=481` | `sent=300` `fps=60.2` `synced=true` |
+| 3% 丢包 | `frames=492` `playable_ms="16.89/21.81"` | `retransmitted=87` |
+| 5% 丢包 + FEC | `frames=487` `playable_ms="16.98/20.66"` | `retransmitted=20`（**从 87 降到 20**） |
+
+**FEC 的效果在 Linux 上同样成立**：5% 丢包下把重传需求压掉 77%。
+
+### 四、抓到一个真实缺陷：测试把开发环境当成了被测性质
+
+在 Linux 上跑测试时，`sidelens-core/tests/platform.rs` 有一条失败：
+
+```text
+thread 'current_platform_is_windows_on_dev_machine' panicked:
+  当前开发环境是 Windows，Platform::current() 应返回 Windows
+  left: Linux
+  right: Windows
+```
+
+**测试的名字和断言都写死了 Windows**，理由是「开发机是 Windows」。
+但那是把**开发环境当成了被测性质** —— 在任何非 Windows 平台都必然失败，
+而失败信息看起来像「移植有问题」，实际是测试写错了。
+
+这条测试的**真实意图**是「证明 `cfg!` 判定链没写反」（比如把
+`target_os = "macos"` 的字符串打错字，或两个分支写反）。
+
+改成按 `cfg!` 反推期望值：
+
+```rust
+let expect = if cfg!(target_os = "windows") { Platform::Windows }
+    else if cfg!(target_os = "macos") { Platform::MacOs }
+    else if cfg!(target_os = "linux") { Platform::Linux }
+    // ...
+    else { Platform::Unknown };
+assert_eq!(Platform::current(), expect);
+assert_ne!(Platform::current(), Platform::Unknown, "检查 cfg! 字符串是否拼错");
+```
+
+**为什么这个写法仍然能抓到错误**：如果某个 `cfg!` 分支打错字，那个分支
+永远不成立，函数会落到兜底 `Unknown` —— 两条断言都会失败。
+
+修正后：**Windows 25 passed / Linux 25 passed**，两边都过。
+
+### 五、一个运行期依赖的坑
+
+`sidelensd` 在 Linux 上第一次启动报：
+
+```text
+error while loading shared libraries: libopus.so.0: cannot open shared object file
+```
+
+`audiopus_sys` 把 Opus 编译成了 **dylib** 但没装进系统库路径。文件在这里：
+
+```text
+target/release/build/audiopus_sys/<hash>/out/lib/libopus.so.0
+```
+
+临时解法是设 `LD_LIBRARY_PATH`。**生产环境应该**：
+
+1. 用 `cargo install --path apps/sidelensd`（cargo 会处理好 rpath）
+2. 或把 `libopus.so.0` 装到 `/usr/local/lib` + `ldconfig`
+3. 或改用静态链接（`audiopus_sys` 支持 `OPUS_STATIC=1`）
+
+### 六、当前跨平台状态
+
+| 平台 | 编译 | 测试 | 运行 |
+| --- | --- | --- | --- |
+| Windows | ✅ | ✅ 1066 | ✅ 全功能（含 GPU 渲染、原生 UI） |
+| **Linux** | ✅ | ✅ 核心 4 crate 全过 | ✅ **UDP 链路跑通**（无 UI/采集/渲染） |
+| macOS | ✅ check | — | — |
+| iOS / Android | ✅ check | — | — |
+
+**Linux 上缺的是平台实现**（采集、渲染、UI、声卡），核心协议与传输已完全可用。
+
+### 七、验证
+
+```text
+Windows  1066 passed / 0 failed
+Linux    核心 4 crate 全过 + 端到端 UDP 三档场景
+fmt/clippy  0 / CLEAN
+git      2 次提交，303 文件 / 96,334 行
+```
