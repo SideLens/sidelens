@@ -40,27 +40,35 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::{
-    InitCommonControlsEx, BST_CHECKED, BST_UNCHECKED, ICC_STANDARD_CLASSES, INITCOMMONCONTROLSEX,
-    INITCOMMONCONTROLSEX_ICC,
+    InitCommonControlsEx, BST_CHECKED, BST_UNCHECKED, ICC_BAR_CLASSES, ICC_STANDARD_CLASSES,
+    INITCOMMONCONTROLSEX, INITCOMMONCONTROLSEX_ICC, TBM_SETPOS, TBM_SETRANGE,
 };
 use windows::Win32::UI::HiDpi::{
     AdjustWindowRectExForDpi, GetDpiForSystem, GetDpiForWindow, SetProcessDpiAwarenessContext,
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
-use windows::Win32::UI::Input::KeyboardAndMouse::{EnableWindow, SetFocus};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    EnableWindow, RegisterHotKey, SetFocus, UnregisterHotKey, HOT_KEY_MODIFIERS,
+};
 use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
+use windows::Win32::UI::Shell::{
+    Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect,
-    GetWindowLongPtrW, IsDialogMessageW, IsWindow, MoveWindow, PeekMessageW, PostMessageW,
-    PostQuitMessage, RegisterClassExW, SendMessageW, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    SystemParametersInfoW, TranslateMessage, BM_CLICK, BM_GETCHECK, BM_SETCHECK, BN_CLICKED,
-    BS_AUTOCHECKBOX, BS_PUSHBUTTON, CBN_SELCHANGE, CBS_DROPDOWNLIST, CB_ADDSTRING, CB_GETCOUNT,
-    CB_GETCURSEL, CB_SETCURSEL, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
-    GWLP_USERDATA, HMENU, MINMAXINFO, MSG, PM_REMOVE, SPI_GETWORKAREA, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CLOSE, WM_COMMAND, WM_CREATE,
-    WM_CTLCOLORBTN, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_GETMINMAXINFO, WM_NCCREATE,
-    WM_NCDESTROY, WM_PAINT, WM_SETFONT, WM_SIZE, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN,
-    WS_EX_CONTROLPARENT, WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
+    AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DestroyWindow,
+    DispatchMessageW, GetClientRect, GetCursorPos, GetWindowLongPtrW, IsDialogMessageW, IsWindow,
+    LoadIconW, MoveWindow, PeekMessageW, PostMessageW, PostQuitMessage, RegisterClassExW,
+    SendMessageW, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+    SystemParametersInfoW, TrackPopupMenu, TranslateMessage, BM_CLICK, BM_GETCHECK, BM_SETCHECK,
+    BN_CLICKED, BS_AUTOCHECKBOX, BS_PUSHBUTTON, CBN_SELCHANGE, CBS_DROPDOWNLIST, CB_ADDSTRING,
+    CB_GETCOUNT, CB_GETCURSEL, CB_SETCURSEL, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
+    GWLP_USERDATA, HMENU, IDI_APPLICATION, MF_CHECKED, MF_STRING, MF_UNCHECKED, MINMAXINFO, MSG,
+    PM_REMOVE, SPI_GETWORKAREA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
+    TPM_RETURNCMD, TPM_RIGHTBUTTON, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CLOSE, WM_COMMAND, WM_CREATE,
+    WM_CTLCOLORBTN, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_GETMINMAXINFO, WM_HOTKEY,
+    WM_HSCROLL, WM_LBUTTONDBLCLK, WM_LBUTTONUP, WM_NCCREATE, WM_NCDESTROY, WM_PAINT, WM_RBUTTONUP,
+    WM_SETFONT, WM_SIZE, WM_USER, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CONTROLPARENT,
+    WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
 
 use crate::control::{ControlId, ControlKind};
@@ -101,6 +109,11 @@ const VIDEO_BORDER: COLORREF = COLORREF(0x0050_5058);
 
 /// 视频占位区里的提示文字色
 const VIDEO_HINT: COLORREF = COLORREF(0x0090_9098);
+const WM_TRAY_CALLBACK: u32 = WM_USER + 1;
+const TRAY_ICON_ID: u32 = 1;
+const TRAY_MENU_OPEN: usize = 1;
+const TRAY_MENU_EXIT: usize = 2;
+const TRAY_MENU_AUTOSTART: usize = 3;
 
 /// 把 &str 转成以 0 结尾的 UTF-16
 fn wide(s: &str) -> Vec<u16> {
@@ -178,7 +191,7 @@ fn init_process() {
             let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
             let icc = INITCOMMONCONTROLSEX {
                 dwSize: std::mem::size_of::<INITCOMMONCONTROLSEX>() as u32,
-                dwICC: INITCOMMONCONTROLSEX_ICC(ICC_STANDARD_CLASSES.0),
+                dwICC: INITCOMMONCONTROLSEX_ICC(ICC_STANDARD_CLASSES.0 | ICC_BAR_CLASSES.0),
             };
             let _ = InitCommonControlsEx(&icc);
         }
@@ -233,6 +246,11 @@ struct Inner {
     controls: Vec<ControlEntry>,
     next_id: isize,
     events: VecDeque<UiEvent>,
+    hotkeys: Vec<i32>,
+    tray_enabled: bool,
+    tray_added: bool,
+    /// 托盘自启动菜单项的当前勾选状态
+    autostart_enabled: bool,
     /// 视频区在设计坐标系下的矩形
     video: Rect,
     /// 视频区背景刷（创建一次，Drop 时删）
@@ -399,6 +417,22 @@ impl Inner {
                     _ => None,
                 }
             }
+            WM_HSCROLL => {
+                let code = (wparam.0 & 0xFFFF) as u32;
+                let hwnd_ctrl = HWND(lparam.0 as *mut c_void);
+                let entry = self
+                    .controls
+                    .iter()
+                    .find(|control| control.hwnd == hwnd_ctrl)?;
+                if entry.kind != ControlKind::Slider || !matches!(code, 4 | 5 | 8) {
+                    return None;
+                }
+                let id = entry.id;
+                // SAFETY: the WM_HSCROLL lparam identifies the live trackbar child.
+                let value = unsafe { SendMessageW(hwnd_ctrl, WM_USER, None, None).0 as i32 };
+                self.events.push_back(UiEvent::SliderChanged(id, value));
+                Some(LRESULT(0))
+            }
             WM_CTLCOLORSTATIC | WM_CTLCOLORBTN => {
                 // 静态文本和复选框默认按「对话框背景」画，和本窗口的按钮面色
                 // 不一致，视觉上就是一块块补丁。这里把背景设成透明、返回窗口
@@ -442,11 +476,35 @@ impl Inner {
                 Some(LRESULT(0))
             }
             WM_CLOSE => {
+                if self.tray_enabled {
+                    if !self.tray_added {
+                        self.add_tray_icon(hwnd);
+                    }
+                    if self.tray_added {
+                        let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
+                        return Some(LRESULT(0));
+                    }
+                }
                 // 显式 DestroyWindow 而不是交给默认过程，语义更直白
                 let _ = unsafe { DestroyWindow(hwnd) };
                 Some(LRESULT(0))
             }
+            WM_TRAY_CALLBACK => {
+                match lparam.0 as u32 {
+                    value if value == WM_LBUTTONUP || value == WM_LBUTTONDBLCLK => {
+                        self.restore_from_tray(hwnd);
+                    }
+                    value if value == WM_RBUTTONUP => self.show_tray_menu(hwnd),
+                    _ => {}
+                }
+                Some(LRESULT(0))
+            }
+            WM_HOTKEY => {
+                self.events.push_back(UiEvent::Hotkey(wparam.0 as i32));
+                Some(LRESULT(0))
+            }
             WM_DESTROY => {
+                self.remove_tray_icon();
                 self.destroyed = true;
                 self.events.push_back(UiEvent::Closed);
                 // SAFETY: 线程内退出消息循环
@@ -460,6 +518,99 @@ impl Inner {
             }
             WM_CREATE => Some(LRESULT(0)),
             _ => None,
+        }
+    }
+
+    fn add_tray_icon(&mut self, hwnd: HWND) {
+        let mut data = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: hwnd,
+            uID: TRAY_ICON_ID,
+            uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
+            uCallbackMessage: WM_TRAY_CALLBACK,
+            hIcon: unsafe { LoadIconW(None, IDI_APPLICATION).unwrap_or_default() },
+            ..Default::default()
+        };
+        let tip: Vec<u16> = "SideLens Camera".encode_utf16().chain(Some(0)).collect();
+        let count = tip.len().min(data.szTip.len());
+        data.szTip[..count].copy_from_slice(&tip[..count]);
+        // SAFETY: data is initialized for NIM_ADD and remains alive for this call.
+        self.tray_added = unsafe { Shell_NotifyIconW(NIM_ADD, &data).as_bool() };
+    }
+
+    fn remove_tray_icon(&mut self) {
+        if !self.tray_added {
+            return;
+        }
+        let data = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: self.hwnd,
+            uID: TRAY_ICON_ID,
+            ..Default::default()
+        };
+        // SAFETY: the identifier matches the icon previously registered by this window.
+        let _ = unsafe { Shell_NotifyIconW(NIM_DELETE, &data) };
+        self.tray_added = false;
+    }
+
+    fn restore_from_tray(&mut self, hwnd: HWND) {
+        self.remove_tray_icon();
+        // SAFETY: hwnd is the live main window receiving the tray callback.
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_SHOW);
+            let _ = SetForegroundWindow(hwnd);
+        }
+    }
+
+    fn show_tray_menu(&mut self, hwnd: HWND) {
+        // SAFETY: menu handles are checked and destroyed after the synchronous popup call.
+        unsafe {
+            let Ok(menu) = CreatePopupMenu() else { return };
+            let open = wide("打开 SideLens");
+            let autostart = wide("随 Windows 登录启动");
+            let exit = wide("退出");
+            // 勾选状态由业务层开机时读入，切换后只入队事件；
+            // 真正的注册表写入在 sidelensd 主循环里完成，避免阻塞消息泵。
+            let autostart_flags = if self.autostart_enabled {
+                MF_STRING | MF_CHECKED
+            } else {
+                MF_STRING | MF_UNCHECKED
+            };
+            let _ = AppendMenuW(
+                menu,
+                autostart_flags,
+                TRAY_MENU_AUTOSTART,
+                PCWSTR(autostart.as_ptr()),
+            );
+            let _ = AppendMenuW(menu, MF_STRING, TRAY_MENU_OPEN, PCWSTR(open.as_ptr()));
+            let _ = AppendMenuW(menu, MF_STRING, TRAY_MENU_EXIT, PCWSTR(exit.as_ptr()));
+            let mut point = windows::Win32::Foundation::POINT::default();
+            if GetCursorPos(&mut point).is_ok() {
+                let _ = SetForegroundWindow(hwnd);
+                let command = TrackPopupMenu(
+                    menu,
+                    TPM_RETURNCMD | TPM_RIGHTBUTTON,
+                    point.x,
+                    point.y,
+                    Some(0),
+                    hwnd,
+                    None,
+                )
+                .0 as usize;
+                match command {
+                    TRAY_MENU_OPEN => self.restore_from_tray(hwnd),
+                    TRAY_MENU_AUTOSTART => {
+                        self.autostart_enabled = !self.autostart_enabled;
+                        self.events
+                            .push_back(UiEvent::TrayAutostartToggled(self.autostart_enabled));
+                    }
+                    TRAY_MENU_EXIT => {
+                        let _ = DestroyWindow(hwnd);
+                    }
+                    _ => {}
+                }
+            }
+            let _ = DestroyMenu(menu);
         }
     }
 
@@ -758,6 +909,10 @@ impl MainWindow {
                 controls: Vec::new(),
                 next_id: FIRST_CONTROL_ID,
                 events: VecDeque::new(),
+                hotkeys: Vec::new(),
+                tray_enabled: false,
+                tray_added: false,
+                autostart_enabled: false,
                 // 视频区默认：左右各留 16、上留 96（状态栏）、下留 96（按钮行）
                 video: Rect::new(16, 96, width as i32 - 32, height as i32 - 192),
                 video_brush: CreateSolidBrush(VIDEO_BG),
@@ -1018,6 +1173,69 @@ impl MainWindow {
             }
         }
         id
+    }
+
+    /// Adds a native horizontal trackbar with a fixed range of 0..=100.
+    pub fn add_slider(&mut self, value: i32, x: i32, y: i32, w: i32, h: i32) -> ControlId {
+        let style = WS_CHILD | WS_VISIBLE | WS_TABSTOP | WINDOW_STYLE(0);
+        let id = self
+            .create_control(
+                ControlKind::Slider,
+                w!("msctls_trackbar32"),
+                "",
+                style,
+                WINDOW_EX_STYLE(0),
+                Rect::new(x, y, w, h),
+            )
+            .unwrap_or_else(|e| {
+                eprintln!("sidelens-ui: {e}");
+                ControlId::from_raw(-1)
+            });
+        if !id.is_invalid() {
+            // SAFETY: TBM_SETRANGE packs the 0..100 range in the low/high words.
+            if let Some(hwnd) = self.entry(id).map(|entry| entry.hwnd) {
+                unsafe {
+                    SendMessageW(
+                        hwnd,
+                        TBM_SETRANGE,
+                        Some(WPARAM(1)),
+                        Some(LPARAM(100isize << 16)),
+                    );
+                }
+            }
+            self.set_slider_value(id, value);
+        }
+        id
+    }
+
+    /// Sets a trackbar value; values are clamped to 0..=100.
+    pub fn set_slider_value(&mut self, id: ControlId, value: i32) {
+        let Some((hwnd, kind)) = self.entry(id).map(|entry| (entry.hwnd, entry.kind)) else {
+            return;
+        };
+        if kind == ControlKind::Slider {
+            // SAFETY: TBM_SETPOS synchronously updates this live trackbar.
+            unsafe {
+                SendMessageW(
+                    hwnd,
+                    TBM_SETPOS,
+                    Some(WPARAM(1)),
+                    Some(LPARAM(value.clamp(0, 100) as isize)),
+                );
+            }
+        }
+    }
+
+    /// Reads a trackbar value; non-slider ids return 0.
+    pub fn slider_value(&self, id: ControlId) -> i32 {
+        let Some(entry) = self.entry(id) else {
+            return 0;
+        };
+        if entry.kind != ControlKind::Slider {
+            return 0;
+        }
+        // SAFETY: TBM_GETPOS synchronously reads this live trackbar.
+        unsafe { SendMessageW(entry.hwnd, WM_USER, None, None).0 as i32 }
     }
 
     /// 找控件
@@ -1295,6 +1513,18 @@ impl MainWindow {
         }
     }
 
+    /// 启用托盘关闭行为：点标题栏关闭时隐藏到系统托盘，左键恢复，右键可恢复或退出。
+    pub fn enable_tray(&mut self) {
+        self.inner.tray_enabled = true;
+    }
+
+    /// 同步托盘菜单里「随 Windows 登录启动」的勾选状态。
+    ///
+    /// 只改界面状态，不碰注册表；调用方负责读取/写入真实的启动项。
+    pub fn set_autostart_enabled(&mut self, enabled: bool) {
+        self.inner.autostart_enabled = enabled;
+    }
+
     /// 请求关闭窗口（投递 WM_CLOSE，不阻塞）
     ///
     /// 关闭是异步的：调用后要等 pump 吐出 [UiEvent::Closed] 才算真的关掉。
@@ -1321,6 +1551,28 @@ impl MainWindow {
         unsafe {
             SendMessageW(entry.hwnd, BM_CLICK, None, None);
         }
+    }
+
+    /// 注册发往本窗口的系统级快捷键。ID 必须在本窗口内唯一。
+    /// modifiers 使用 Win32 HOT_KEY_MODIFIERS 位（MOD_ALT/CONTROL/SHIFT/WIN）。
+    pub fn register_hotkey(
+        &mut self,
+        id: i32,
+        modifiers: u32,
+        virtual_key: u32,
+    ) -> Result<(), UiError> {
+        // SAFETY: hwnd 属于当前窗口；注册成功后在 Drop 中按同一 ID 注销。
+        unsafe {
+            RegisterHotKey(
+                Some(self.inner.hwnd),
+                id,
+                HOT_KEY_MODIFIERS(modifiers),
+                virtual_key,
+            )
+        }
+        .map_err(|e| UiError::Window(format!("注册全局快捷键 {id} 失败：{e}")))?;
+        self.inner.hotkeys.push(id);
+        Ok(())
     }
 
     /// 把焦点给某个控件
@@ -1354,6 +1606,10 @@ impl Drop for MainWindow {
         // SAFETY: 先把窗口过程的状态指针摘掉，再销毁窗口，
         // 这样 WM_DESTROY / WM_NCDESTROY 里不会读到已经要释放的 Inner。
         unsafe {
+            self.inner.remove_tray_icon();
+            for id in self.inner.hotkeys.drain(..) {
+                let _ = UnregisterHotKey(Some(self.inner.hwnd), id);
+            }
             if !self.inner.hwnd.is_invalid() && is_window(self.inner.hwnd) {
                 SetWindowLongPtrW(self.inner.hwnd, GWLP_USERDATA, 0);
                 let _ = DestroyWindow(self.inner.hwnd);
@@ -1368,6 +1624,15 @@ mod tests {
     use super::*;
 
     /// 建隐藏窗口；无交互桌面（服务会话）时返回 None，测试跳过而不是失败
+    #[test]
+    fn 托盘自启动状态可同步而不改真实注册表() {
+        let Some(mut win) = try_window() else { return };
+        win.set_autostart_enabled(true);
+        let _ = win.pump();
+        win.set_autostart_enabled(false);
+        let _ = win.pump();
+    }
+
     fn try_window() -> Option<MainWindow> {
         match MainWindow::new_hidden("SideLens 测试窗口", 900, 640) {
             Ok(w) => Some(w),

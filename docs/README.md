@@ -1,6 +1,6 @@
 # SideLens 文档索引
 
-> 42 篇文档、约 770 KB。按「想解决什么问题」组织，不按时间顺序。
+> 46 篇文档。按「想解决什么问题」组织，不按时间顺序。
 
 ## 从这里开始
 
@@ -9,6 +9,9 @@
 | [progress.md](progress.md) | 想知道项目做到哪了、每一轮的实测数字。**62 轮的完整记录** |
 | [blockers.md](blockers.md) | 想知道什么做不了、为什么、解除条件 |
 | [protocol.md](protocol.md) | 改协议、加帧类型、理解 32 字节帧头 |
+| [release.md](release.md) | **打包 / 安装 / 卸载**：per-user 布局、三条不变量、49 项自动断言 |
+| [update.md](update.md) | **应用内更新与手机端升级提示**：两段式落地、手写 HTTP、去重与撤销 |
+| [release-manifest.md](release-manifest.md) | 发布清单契约：字段、路径安全、版本判据 |
 
 ## 延迟（项目的核心指标）
 
@@ -55,6 +58,8 @@ H.264 编解码往返 p50 **882 µs**（编码 529 + 解码 398），33ms 帧间
 | [render.md](render.md) | **渲染层（GDI）**：NV12 转 RGBA、coded vs display 裁剪、BT.709 依据、性能实测 |
 | [render-gpu.md](render-gpu.md) | **GPU 渲染层**：D3D11 + flip-model，**p50 7456→437µs（17.1x）** |
 | [ui.md](ui.md) | **原生 UI 层**：纯 Win32 控件 + DPI 感知，`pump` **297ns**，不用 webview |
+| [frame-transform.md](frame-transform.md) | **NV12 几何变换**：旋转/裁切的三条硬约束、stride bug、与 DirectShow 模式的冲突 |
+| [frame-effects.md](frame-effects.md) | **画面效果**：不依赖 ONNX 的自动取景/背景虚化/人像平滑，以及为什么这样取舍 |
 
 ## 平台与移植
 
@@ -92,6 +97,8 @@ H.264 编解码往返 p50 **882 µs**（编码 529 + 解码 398），33ms 帧间
 | `tools/h264-inspect.mjs` | **独立** Annex-B 解析器（零依赖，支持 `--json` / `--summary` / `--expect` 断言） |
 | `tools/verify-h264-stream.ps1` | H.264 码流回归（720p/1080p/360p + 3 个参数交互场景） |
 | `tools/verify-e2e.ps1` | **端到端回归（统一入口）**：8 场景 / 25 断言 / 2 分钟，含真实采集，退出码可接 CI |
+| `tools/package-release.ps1` | **打包**：产出 dist/<版本>/ 与 zip，逐文件算 sha256 写进清单 |
+| `tools/verify-release.ps1` | **发布验证**：打包→装→升→卸→更新→版本一致性，**49 项断言**，全在临时沙箱 |
 | `tools/verify-cross-platform.ps1` | **跨平台编译回归**（自动发现所有 target，逐个 cargo check） |
 | `tools/audit-cfg.sh` | cfg 门控静态审计（4 类 HIGH 问题 + 单边 cfg） |
 | `tools/verify-jitter-adapt.ps1` | 抖动缓冲自适应实测 |
@@ -111,3 +118,5 @@ H.264 编解码往返 p50 **882 µs**（编码 529 + 解码 398），33ms 帧间
 **想接手虚拟摄像头**：`dshow.md`（当前可用路线）→ `vcam-summary.md`（为什么放弃 MF 路线）
 
 **想加新功能**：`protocol.md` → `cross-platform.md`（cfg 门控判据）→ `progress.md` 最近的轮次
+
+**想发一个版本**：`release.md`（一条命令）→ `release-manifest.md`（清单字段与判据）→ `update.md`（用户怎么拿到这个版本）

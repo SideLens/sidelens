@@ -1,0 +1,24 @@
+[package]
+name = "sidelens-update"
+description = "SideLens 发布清单、版本比较与更新决策（安装/更新/手机升级提示共用的纯逻辑层）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# # 为什么单独一个 crate
+#
+# 安装器（sidelens-setup）、常驻服务（sidelensd）、手机升级提示三处都要回答
+# 同一组问题：清单里写的是什么版本、我装的是什么版本、该不该更新、手机端
+# 上报的 versionCode 够不够新。这三处的判据必须完全一致 —— 否则会出现
+# 「安装器说已是最新、GUI 说该升级」这种自相矛盾的界面。
+#
+# 把这个判据放在独立 crate 里，才能在没有 Windows、没有网络、没有注册表的
+# 环境里把边界条件钉死：跨大版本、回滚分发、清单 schema 超前、手机端版本
+# 字段缺失、路径穿越。
+#
+# 依赖刻意保持极小：serde_json 已经在 workspace 里（sidelens-core 用它），
+# sha2 已经在 lock 里（sidelens-crypto 用它），因此不引入新的下载。
+[dependencies]
+serde_json = { workspace = true }
+sha2 = "0.10"

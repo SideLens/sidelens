@@ -1,36 +1,17 @@
 package com.sidelens.app
 
 import android.util.Log
+import org.json.JSONObject
 import java.io.BufferedOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
-/**
- * 把编码后的帧发到电脑。
- *
- * # 为什么先用裸 TCP 而不是复用 UDP 协议
- *
- * 现有 `sidelens-transport` 的 UDP 协议带分片、NACK、FEC，是一整套东西。
- * 但**手机端目前只需要验证「摄像头 → 编码 → 网络 → 电脑」这条链**，
- * 不需要弱网对抗。裸 TCP 能在半天内跑通，而且丢包由内核重传兜住。
- *
- * 等链路验证完，再把这层换成 `sidelens-proto` 的 UDP 分片 —— 那时
- * 才有必要处理 NACK 与 FEC（它们是为丢包设计的，不是为「先跑通」设计的）。
- *
- * # 线格式
- *
- * ```text
- * [4B 长度 BE][8B ptsUs BE][1B flags][N B H.264 数据]
- * ```
- *
- * flags: bit0 = 关键帧。
- */
+/** Sends versioned phone-link messages and receives desktop controls on TCP's reverse direction. */
 class FrameSender {
 
     private var socket: Socket? = null
     private var out: BufferedOutputStream? = null
+    @Volatile private var controlReader: Thread? = null
 
     /**
      * 连接电脑。
@@ -67,18 +48,94 @@ class FrameSender {
     fun send(data: ByteArray, ptsUs: Long, isKey: Boolean) {
         val o = out ?: return
         try {
-            val header = ByteBuffer.allocate(HEADER_SIZE).order(ByteOrder.BIG_ENDIAN)
-            header.putInt(data.size)
-            header.putLong(ptsUs)
-            header.put(if (isKey) 1 else 0)
-            o.write(header.array())
-            o.write(data)
-            // 每帧 flush：实时视频不能等缓冲满
+            PhoneProtocol.writeMessage(o, PhoneProtocol.FRAME, PhoneProtocol.framePayload(data, ptsUs, isKey))
             o.flush()
         } catch (e: Exception) {
             Log.e(TAG, "发送失败: ${e.message}")
             close()
         }
+    }
+
+    @Synchronized
+    fun sendHello(json: String) = sendMessage(PhoneProtocol.HELLO, json.toByteArray(Charsets.UTF_8))
+
+    @Synchronized
+    fun sendConfig(width: Int, height: Int, codecData: ByteArray) = sendMessage(
+        PhoneProtocol.CONFIG,
+        PhoneProtocol.configPayload(width, height, codecData),
+    )
+
+    @Synchronized
+    fun sendState(json: String) = sendMessage(PhoneProtocol.STATE, json.toByteArray(Charsets.UTF_8))
+
+    /**
+     * 把版本信息并进 STATE。
+     *
+     * 单独一个方法而不是让调用方自己拼：版本字段的**形状**是跨端契约
+     * （见 crates/sidelens-update/src/phone.rs 里的三种历史形态），
+     * 分散到调用方迟早会有人写成 "version": "0.2.0" 然后电脑端读不到 code。
+     */
+    @Synchronized
+    fun sendStateWithVersion(base: JSONObject, versionCode: Long, versionName: String) {
+        val withVersion = JSONObject(base.toString())
+        withVersion.put(
+            "version",
+            JSONObject()
+                .put("code", versionCode)
+                .put("name", versionName)
+                .put("protocol", PhoneProtocol.VERSION),
+        )
+        // 顶层也放一份 protocol：老电脑端只认顶层字段时仍能判协议兼容性
+        withVersion.put("protocol", PhoneProtocol.VERSION)
+        sendState(withVersion.toString())
+    }
+
+    @Synchronized
+    fun sendAudioConfig(codec: Int, sampleRate: Int, channels: Int, codecData: ByteArray) = sendMessage(
+        PhoneProtocol.AUDIO_CONFIG,
+        PhoneProtocol.audioConfigPayload(codec, sampleRate, channels, codecData),
+    )
+
+    @Synchronized
+    fun sendAudio(data: ByteArray, ptsUs: Long) = sendMessage(
+        PhoneProtocol.AUDIO,
+        PhoneProtocol.audioPayload(data, ptsUs),
+    )
+
+    private fun sendMessage(type: Int, payload: ByteArray) {
+        val o = out ?: return
+        try {
+            PhoneProtocol.writeMessage(o, type, payload)
+            o.flush()
+        } catch (e: Exception) {
+            Log.e(TAG, "协议消息发送失败: ${e.message}")
+            close()
+        }
+    }
+
+    /** Read newline-delimited desktop camera controls from the TCP reverse channel. */
+    fun startControlReader(onControl: (JSONObject) -> Unit) {
+        val activeSocket = socket ?: return
+        val thread = Thread({
+            try {
+                activeSocket.getInputStream().use { input ->
+                    while (!activeSocket.isClosed) {
+                        val message = PhoneProtocol.readMessage(input) ?: break
+                        if (message.type == PhoneProtocol.CONTROL) {
+                            try {
+                                onControl(JSONObject(String(message.payload, Charsets.UTF_8)))
+                            } catch (e: Exception) {
+                                Log.w(TAG, "忽略无效控制消息: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (activeSocket.isClosed.not()) Log.w(TAG, "控制通道已断开: ${e.message}")
+            }
+        }, "SideLens-Control").apply { isDaemon = true }
+        controlReader = thread
+        thread.start()
     }
 
     fun close() {
@@ -93,6 +150,5 @@ class FrameSender {
 
     companion object {
         private const val TAG = "SideLens.Sender"
-        private const val HEADER_SIZE = 4 + 8 + 1
     }
 }

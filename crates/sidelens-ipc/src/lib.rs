@@ -61,7 +61,7 @@ pub mod ring_shm;
 pub mod shm;
 
 pub use ring::{RingLayout, SlotIndex};
-pub use wire::{FrameMeta, FrameSignal, PixelFormat};
+pub use wire::{FrameMeta, FrameModeRequest, FrameSignal, PixelFormat};
 
 #[cfg(windows)]
 pub use pipe::{PipeClient, PipeServer};

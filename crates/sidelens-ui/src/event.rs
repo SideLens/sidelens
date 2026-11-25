@@ -18,12 +18,18 @@ pub enum UiEvent {
     CheckboxToggled(ControlId, bool),
     /// 下拉框选中项变化（第二个参数是新的下标，从 0 开始）
     ComboChanged(ControlId, usize),
+    /// 滑块值变化（范围 0..=100）
+    SliderChanged(ControlId, i32),
     /// 窗口被关闭（点 X、Alt+F4，或调用了 `DestroyWindow`）
     Closed,
     /// 客户区尺寸变化
     Resized(u32, u32),
     /// 窗口所在显示器的 DPI 变化
     DpiChanged(u32),
+    /// 注册的全局热键被按下（参数为注册时的 ID）
+    Hotkey(i32),
+    /// 托盘菜单里的「随 Windows 登录启动」被切换（第二个参数是新的状态）
+    TrayAutostartToggled(bool),
 }
 
 impl std::fmt::Display for UiEvent {
@@ -34,9 +40,29 @@ impl std::fmt::Display for UiEvent {
                 write!(f, "复选框 {id} -> {}", if *on { "勾选" } else { "取消" })
             }
             UiEvent::ComboChanged(id, index) => write!(f, "下拉框 {id} -> 第 {index} 项"),
+            UiEvent::SliderChanged(id, value) => write!(f, "滑块 {id} -> {value}"),
             UiEvent::Closed => write!(f, "窗口关闭"),
             UiEvent::Resized(w, h) => write!(f, "窗口尺寸 {w}x{h}"),
             UiEvent::DpiChanged(dpi) => write!(f, "DPI 变化 {dpi}"),
+            UiEvent::Hotkey(id) => write!(f, "全局快捷键 {id}"),
+            UiEvent::TrayAutostartToggled(on) => {
+                write!(f, "托盘自启动 -> {}", if *on { "启用" } else { "停用" })
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn 自启动托盘事件在两种状态下都有清晰文案() {
+        assert!(UiEvent::TrayAutostartToggled(true)
+            .to_string()
+            .contains("启用"));
+        assert!(UiEvent::TrayAutostartToggled(false)
+            .to_string()
+            .contains("停用"));
     }
 }

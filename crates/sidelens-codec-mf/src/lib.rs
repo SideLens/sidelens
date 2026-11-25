@@ -60,6 +60,8 @@
 pub mod error;
 
 #[cfg(windows)]
+mod audio_decoder;
+#[cfg(windows)]
 mod com;
 #[cfg(windows)]
 mod decoder;
@@ -70,6 +72,8 @@ mod variant;
 
 pub use error::{EncoderError, Result};
 
+#[cfg(windows)]
+pub use audio_decoder::AacDecoder;
 #[cfg(windows)]
 pub use com::{InitError, MediaFoundation};
 #[cfg(windows)]

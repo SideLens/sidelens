@@ -6,6 +6,23 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+# 二进制 + 库两个产物。
+#
+# # 为什么需要 lib 目标
+#
+# 更新链路（清单获取 / 下载 / 校验 / 落地）必须有集成测试跑真实的 HTTP，
+# 而集成测试只能看到 **lib** 暴露的东西 —— 二进制 crate 的模块对
+# tests/ 目录不可见。把更新模块放进 lib 后，tests/update_http.rs 能直接
+# 调 update::fetch::http::get，覆盖 Content-Length / chunked / 关闭定界
+# 三种分帧；只留在 bin 里就只能靠 file:// 测，等于没测 HTTP 客户端。
+#
+# 其余模块（采集、解码、GUI、虚拟摄像头）仍然只在 bin 里：
+# 它们要么依赖 Windows，要么需要在真实设备上跑，放进 lib 只会让
+# 每个测试二进制都链接一遍整套媒体栈。
+[lib]
+name = "sidelensd"
+path = "src/lib.rs"
+
 [[bin]]
 name = "sidelensd"
 path = "src/main.rs"
@@ -26,6 +43,7 @@ path = "src/main.rs"
 # dependencies 里 —— 否则将来加第二个平台时会被这个假象误导。
 [dependencies]
 sidelens-proto = { workspace = true }
+sidelens-phone-proto = { workspace = true }
 sidelens-core = { workspace = true }
 sidelens-transport = { workspace = true }
 sidelens-codec = { workspace = true }
@@ -38,6 +56,17 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde_json = { workspace = true }
+# 发布层：版本/清单/哈希/布局/升级决策（纯逻辑，跨平台）
+sidelens-update = { workspace = true }
+# 落盘层：与安装器共用同一套原子写/备份/计划
+sidelens-deploy = { workspace = true }
+# NV12 几何变换（旋转/裁切）。跨平台纯逻辑，因此放在普通依赖而不是
+# cfg(windows) 块里 —— 这样 Linux CI 能把它那 24 个测试跑一遍。
+# 目前只有 Windows 的 phone_bridge 在用，但依赖声明不该跟着调用点走。
+sidelens-frame-transform = { workspace = true }
+# 画面效果（自动取景/背景虚化/人像平滑）。同样是跨平台纯逻辑，
+# 19 个测试在 Linux CI 上也能跑。
+sidelens-frame-effects = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { workspace = true }

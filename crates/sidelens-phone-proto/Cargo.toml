@@ -1,0 +1,16 @@
+[package]
+name = "sidelens-phone-proto"
+description = "Versioned TCP messages for the SideLens Android camera link"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+# 只在测试里引入发布层：要断言 `sidelens-update::PROTOCOL_VERSION` 与本
+# crate 的 `VERSION` 没有漂移（见 tests/protocol_version.rs）。
+# 放 dev-dependencies 而不是 dependencies —— 设备链路层不该依赖发布决策层，
+# 否则 Linux 上的发布层测试会被迫连整个协议栈一起编译。
+[dev-dependencies]
+sidelens-update = { workspace = true }

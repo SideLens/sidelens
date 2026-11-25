@@ -216,6 +216,53 @@ pub struct FrameSignal {
     pub meta: FrameMeta,
 }
 
+/// DirectShow -> sidelensd mode request sent over the duplex frame pipe.
+///
+/// The virtual camera negotiates its output size/rate with each client. This
+/// compact message lets the decoder and shared frame ring follow that negotiated
+/// mode without restarting either process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameModeRequest {
+    pub width: u32,
+    pub height: u32,
+    pub fps: u32,
+}
+
+impl FrameModeRequest {
+    pub const SIZE: usize = 16;
+    const MAGIC: [u8; 4] = *b"SLM1";
+
+    pub fn encode(self) -> [u8; Self::SIZE] {
+        let mut out = [0u8; Self::SIZE];
+        out[..4].copy_from_slice(&Self::MAGIC);
+        out[4..8].copy_from_slice(&self.width.to_le_bytes());
+        out[8..12].copy_from_slice(&self.height.to_le_bytes());
+        out[12..16].copy_from_slice(&self.fps.to_le_bytes());
+        out
+    }
+
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != Self::SIZE || bytes[..4] != Self::MAGIC {
+            return None;
+        }
+        let read = |offset: usize| -> Option<u32> {
+            Some(u32::from_le_bytes(
+                bytes[offset..offset + 4].try_into().ok()?,
+            ))
+        };
+        let request = Self {
+            width: read(4)?,
+            height: read(8)?,
+            fps: read(12)?,
+        };
+        let valid_size = (160..=3840).contains(&request.width)
+            && (120..=2160).contains(&request.height)
+            && request.width % 2 == 0
+            && request.height % 2 == 0;
+        (valid_size && (1..=120).contains(&request.fps)).then_some(request)
+    }
+}
+
 impl FrameSignal {
     pub const SIZE: usize = 4 + FrameMeta::SIZE;
 

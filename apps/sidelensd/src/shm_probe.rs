@@ -17,10 +17,21 @@ use sidelens_vcam::frame_source::{FramePoll, FrameSource};
 use sidelens_vcam::source::{Resolution, SourceConfig};
 use tracing::{info, warn};
 
-/// 跑探针
+/// 跑探针。
 ///
 /// frames 是目标读取帧数，width/height 必须与写端一致。
-pub async fn run(width: u32, height: u32, frames: u64) -> Result<()> {
+/// `dump` 非空时把**最后一帧**的 NV12 原样写盘。
+///
+/// 为什么要这个：`distinct_frames` 只能证明"字节在变"，证明不了"画面不是黑的"。
+/// 排查"手机在推流但虚拟摄像头里一片黑"这类问题时，必须能把像素拿出来看。
+/// 写的是原始 NV12（不经转换），避免转换层的问题掩盖上游的问题；
+/// 需要看图时用 `tools/nv12-to-png.mjs` 转。
+pub async fn run_with_dump(
+    width: u32,
+    height: u32,
+    frames: u64,
+    dump: Option<&std::path::Path>,
+) -> Result<()> {
     let cfg = SourceConfig {
         resolution: Resolution::new(width, height),
         ..SourceConfig::default()
@@ -39,6 +50,8 @@ pub async fn run(width: u32, height: u32, frames: u64) -> Result<()> {
     let mut last_pts: i64 = -1;
     let mut first_pts: Option<i64> = None;
     let mut distinct_frames = 0u64;
+    // 只在需要导出时保留最后一帧，避免常态下多占 1.3 MB
+    let mut last_frame: Vec<u8> = Vec::new();
 
     while got < frames {
         match src.poll(&mut buf) {
@@ -48,6 +61,10 @@ pub async fn run(width: u32, height: u32, frames: u64) -> Result<()> {
                     continue;
                 }
                 got += 1;
+                if dump.is_some() {
+                    last_frame.clear();
+                    last_frame.extend_from_slice(&buf[..len]);
+                }
                 if first_pts.is_none() {
                     first_pts = Some(pts_us);
                 }
@@ -98,6 +115,28 @@ pub async fn run(width: u32, height: u32, frames: u64) -> Result<()> {
         stats = ?src.stats.snapshot(),
         "读帧完成"
     );
+
+    if let (Some(path), false) = (dump, last_frame.is_empty()) {
+        // Y 平面统计：纯黑是 16（NV12 的 limited-range 黑电平），
+        // 全 0 说明写端根本没填过数据。
+        let y_len = (width as usize) * (height as usize).min(last_frame.len() / width as usize);
+        let y = &last_frame[..y_len.min(last_frame.len())];
+        let min = y.iter().copied().min().unwrap_or(0);
+        let max = y.iter().copied().max().unwrap_or(0);
+        let mean = if y.is_empty() {
+            0.0
+        } else {
+            y.iter().map(|v| *v as f64).sum::<f64>() / y.len() as f64
+        };
+        std::fs::write(path, &last_frame)
+            .map_err(|e| anyhow::anyhow!("写 {:?} 失败: {e}", path))?;
+        info!(
+            path = %path.display(),
+            bytes = last_frame.len(),
+            y_min = min, y_max = max, y_mean = format!("{mean:.1}"),
+            "已导出最后一帧的 NV12"
+        );
+    }
 
     Ok(())
 }

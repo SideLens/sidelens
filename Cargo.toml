@@ -20,6 +20,12 @@ members = [
     "crates/sidelens-render-gpu",
     "crates/sidelens-ui",
     "crates/sidelens-dshow",
+    "crates/sidelens-phone-proto",
+    "crates/sidelens-update",
+    "apps/sidelens-setup",
+    "crates/sidelens-deploy",
+    "crates/sidelens-frame-transform",
+    "crates/sidelens-frame-effects",
 ]
 
 [workspace.package]
@@ -44,7 +50,12 @@ sidelens-audio-in = { path = "crates/sidelens-audio-in" }
 sidelens-capture = { path = "crates/sidelens-capture" }
 sidelens-render-gpu = { path = "crates/sidelens-render-gpu" }
 sidelens-ui = { path = "crates/sidelens-ui" }
+sidelens-phone-proto = { path = "crates/sidelens-phone-proto" }
 sidelens-dshow = { path = "crates/sidelens-dshow" }
+sidelens-update = { path = "crates/sidelens-update" }
+sidelens-deploy = { path = "crates/sidelens-deploy" }
+sidelens-frame-transform = { path = "crates/sidelens-frame-transform" }
+sidelens-frame-effects = { path = "crates/sidelens-frame-effects" }
 
 serde = "1"
 serde_json = "1"
@@ -67,6 +78,7 @@ windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Devices_Properties",
+    "Win32_Devices_FunctionDiscovery",
     "Win32_System_Com",
     "Win32_System_LibraryLoader",
     "Win32_System_Com_StructuredStorage",
@@ -83,6 +95,10 @@ windows = { version = "0.62", features = [
     "Win32_System_Memory",
     "Win32_System_IO",
     "Win32_System_Pipes",
+    # 应用内更新走系统 TLS 栈：WinHTTP 的证书校验由 Windows 负责，
+    # 因此本仓库不需要引入 rustls/ring，离线也能编。
+    # 加它之前先确认用法：只有 apps/sidelensd/src/update/fetch.rs 的 winhttp 模块。
+    "Win32_Networking_WinHttp",
 ] }
 
 [profile.release]

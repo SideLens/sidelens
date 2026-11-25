@@ -4,7 +4,7 @@
 //!
 //! 现有 `sidelensd` 走的是 `sidelens-proto` 的 UDP 协议（分片 + NACK + FEC）。
 //! 但手机端第一步只需要验证「摄像头 → 编码 → 网络 → 电脑」这条链，
-//! 用的是裸 TCP（见 `FrameSender.kt` 里的说明）。
+//! 使用 `sidelens-phone-proto` 定义的版本化 TCP 消息。
 //!
 //! 这个模式收的就是那条裸 TCP 流，把 H.264 存成文件，再用现有工具验证：
 //!
@@ -16,20 +16,14 @@
 //!
 //! # 线格式
 //!
-//! ```text
-//! [4B 长度 BE][8B ptsUs BE][1B flags][N B H.264 数据]
-//! ```
-//!
-//! flags: bit0 = 关键帧。
+//! `u8 类型 | u32 长度 (LE) | payload`。CONFIG 与 FRAME 载荷见协议 crate。
 
-use std::io::{Read, Write};
+use std::io::Write;
 use std::net::TcpListener;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-
-/// 帧头：4 + 8 + 1
-const HEADER_SIZE: usize = 13;
+use sidelens_phone_proto::{read_message, MessageType, VideoCodec, VideoConfig, VideoFrame};
 
 pub fn run(port: u16, out_path: Option<PathBuf>) -> Result<()> {
     let out = out_path.unwrap_or_else(|| PathBuf::from("target/phone-capture.h264"));
@@ -57,7 +51,6 @@ pub fn run(port: u16, out_path: Option<PathBuf>) -> Result<()> {
     let mut file =
         std::fs::File::create(&out).with_context(|| format!("无法创建输出文件 {out:?}"))?;
 
-    let mut header = [0u8; HEADER_SIZE];
     let mut frames = 0u64;
     let mut bytes = 0u64;
     let mut keyframes = 0u64;
@@ -65,37 +58,62 @@ pub fn run(port: u16, out_path: Option<PathBuf>) -> Result<()> {
     let started = std::time::Instant::now();
 
     loop {
-        // 读帧头：要么读满 13 字节，要么对端关闭
-        match stream.read_exact(&mut header) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+        let message = match read_message(&mut stream) {
+            Ok(Some(message)) => message,
+            Ok(None) => {
                 println!("对端关闭连接");
                 break;
             }
             Err(e) => {
-                eprintln!("读帧头失败: {e}");
+                eprintln!("读取协议消息失败: {e}");
                 break;
             }
-        }
+        };
 
-        let len = u32::from_be_bytes([header[0], header[1], header[2], header[3]]) as usize;
-        let pts = i64::from_be_bytes([
-            header[4], header[5], header[6], header[7], header[8], header[9], header[10],
-            header[11],
-        ]);
-        let flags = header[12];
-        let is_key = flags & 1 != 0;
-
-        if len == 0 || len > 8 * 1024 * 1024 {
-            eprintln!("非法帧长度 {len}，断开");
-            break;
-        }
-
-        let mut data = vec![0u8; len];
-        if let Err(e) = stream.read_exact(&mut data) {
-            eprintln!("读帧数据失败: {e}");
-            break;
-        }
+        let (pts, is_key, data) = match message.kind {
+            MessageType::Hello => {
+                println!("HELLO {}", String::from_utf8_lossy(&message.payload));
+                continue;
+            }
+            MessageType::Config => match VideoConfig::parse(&message.payload) {
+                Ok((config, codec_data)) if config.codec == VideoCodec::H264 => {
+                    println!("CONFIG H.264 {}x{}", config.width, config.height);
+                    if !codec_data.is_empty() {
+                        file.write_all(codec_data)
+                            .context("写入 H.264 参数集失败")?;
+                    }
+                    continue;
+                }
+                Ok((config, _)) => {
+                    eprintln!("不支持视频编码 {:?}", config.codec);
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!("CONFIG 无效: {e}");
+                    continue;
+                }
+            },
+            MessageType::Frame => match VideoFrame::parse(&message.payload) {
+                Ok(frame) => (
+                    frame.pts_us as i64,
+                    frame.is_keyframe(),
+                    frame.data.to_vec(),
+                ),
+                Err(e) => {
+                    eprintln!("FRAME 无效: {e}");
+                    continue;
+                }
+            },
+            MessageType::State => {
+                println!("STATE {}", String::from_utf8_lossy(&message.payload));
+                continue;
+            }
+            MessageType::AudioConfig | MessageType::Audio => {
+                eprintln!("收到音频消息，当前接收模式只存 H.264 视频");
+                continue;
+            }
+            MessageType::Control | MessageType::Ping => continue,
+        };
 
         if first_pts.is_none() {
             first_pts = Some(pts);
@@ -109,7 +127,7 @@ pub fn run(port: u16, out_path: Option<PathBuf>) -> Result<()> {
         }
 
         frames += 1;
-        bytes += len as u64;
+        bytes += data.len() as u64;
         if is_key {
             keyframes += 1;
         }

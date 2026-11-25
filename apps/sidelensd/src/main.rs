@@ -16,7 +16,15 @@
 mod phone_recv;
 mod udp_server;
 
+// 应用内更新与它的命令行外壳住在 lib 目标里（src/lib.rs），
+// 这样 tests/update_http.rs 能直接对 HTTP 客户端做集成测试。
+use sidelensd::update_cli;
+
 // 手机摄像头 → 虚拟摄像头（需要 MF 解码器，仅 Windows）
+#[cfg(windows)]
+mod autostart;
+#[cfg(windows)]
+mod gui;
 #[cfg(windows)]
 mod phone_bridge;
 
@@ -130,6 +138,62 @@ async fn main() -> Result<()> {
     }
 
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    // Windows 桌面界面。界面进程通过隐藏 worker 子进程托管视频接收服务。
+    #[cfg(windows)]
+    if args.iter().any(|a| a == "--gui") {
+        let background = args.iter().any(|a| a == "--background");
+        return gui::run(background);
+    }
+
+    // 应用内更新（跨平台）。放在 --gui 之后、手机链路之前：
+    // 更新是纯 CLI 动作，不该启动任何采集或监听。
+    if let Some(index) = args.iter().position(|a| a == "--check-update") {
+        let Some(url) = args.get(index + 1).filter(|v| !v.starts_with("--")) else {
+            eprintln!("[update] --check-update 后需要清单地址（URL 或本地路径）");
+            std::process::exit(2);
+        };
+        let current = flag_value(&args, "--current");
+        let quiet = args.iter().any(|a| a == "--quiet");
+        std::process::exit(update_cli::run_check(url, current.as_deref(), quiet));
+    }
+    if let Some(index) = args.iter().position(|a| a == "--update") {
+        let Some(url) = args.get(index + 1).filter(|v| !v.starts_with("--")) else {
+            eprintln!("[update] --update 后需要清单地址（URL 或本地路径）");
+            std::process::exit(2);
+        };
+        let current = flag_value(&args, "--current");
+        let stage_only = args.iter().any(|a| a == "--stage-only");
+        std::process::exit(update_cli::run_update(url, stage_only, current.as_deref()));
+    }
+    if let Some(index) = args.iter().position(|a| a == "--write-manifest") {
+        let Some(dir) = args.get(index + 1).filter(|v| !v.starts_with("--")) else {
+            eprintln!("[manifest] --write-manifest 后需要目录");
+            std::process::exit(2);
+        };
+        let version = flag_value(&args, "--version").unwrap_or_else(|| {
+            // 默认取 crate 版本：与 Cargo.toml 的 workspace.package.version 一致
+            env!("CARGO_PKG_VERSION").to_string()
+        });
+        let channel = flag_value(&args, "--channel").unwrap_or_else(|| "stable".into());
+        let notes = flag_value(&args, "--notes").unwrap_or_default();
+        let out = flag_value(&args, "--out");
+        let min_code = number_flag(&args, "--phone-min-code").unwrap_or(0);
+        let latest_code = number_flag(&args, "--phone-latest-code").unwrap_or(0);
+        let latest_name = flag_value(&args, "--phone-latest-name").unwrap_or_default();
+        let min_protocol = number_flag(&args, "--phone-min-protocol").unwrap_or(1);
+        std::process::exit(update_cli::run_write_manifest(
+            dir,
+            &version,
+            &channel,
+            min_code,
+            latest_code,
+            &latest_name,
+            min_protocol,
+            &notes,
+            out.as_deref(),
+        ));
+    }
 
     // 手机帧接收端（跨平台）。验证「摄像头 → 编码 → 网络 → 电脑」这条链。
     //
@@ -254,6 +318,23 @@ async fn main() -> Result<()> {
     run_websocket(port).await
 }
 
+/// 取 `--flag value` 形式的参数值。
+///
+/// 单独抽出来是因为更新子命令有 6 个这种参数，每个都写一遍
+/// `args.iter().position(...).and_then(|i| args.get(i+1))` 会让主函数难以扫读。
+fn flag_value(args: &[String], flag: &str) -> Option<String> {
+    args.iter()
+        .position(|a| a == flag)
+        .and_then(|i| args.get(i + 1))
+        .filter(|v| !v.starts_with("--"))
+        .cloned()
+}
+
+/// 取一个数值型参数
+fn number_flag(args: &[String], flag: &str) -> Option<u32> {
+    flag_value(args, flag).and_then(|v| v.parse().ok())
+}
+
 /// 四个 Windows 专属模式的分发
 ///
 /// 返回 `Some(结果)` 表示命中了某个模式且已执行完；`None` 表示
@@ -352,7 +433,13 @@ async fn run_windows_mode(args: &[String]) -> Option<Result<()>> {
             .and_then(|i| args.get(i + 1))
             .and_then(|s| s.parse().ok())
             .unwrap_or(60);
-        return Some(shm_probe::run(w, h, frames).await);
+        // --dump <文件>：把最后一帧的 NV12 原样写盘，用于确认画面不是黑的
+        let dump = args
+            .iter()
+            .position(|a| a == "--dump")
+            .and_then(|i| args.get(i + 1))
+            .map(std::path::PathBuf::from);
+        return Some(shm_probe::run_with_dump(w, h, frames, dump.as_deref()).await);
     }
 
     None

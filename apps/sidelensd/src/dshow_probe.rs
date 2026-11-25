@@ -206,10 +206,14 @@ pub fn render_test() -> anyhow::Result<()> {
     let r = sidelens_dshow::graph_test::test_render_stream();
     unsafe { CoUninitialize() };
     match r {
-        Ok(()) => println!("
-✅ RenderStream 全流程通过 —— OBS 应该能出画面了"),
-        Err(e) => println!("
-❌ 失败: {e}"),
+        Ok(()) => println!(
+            "
+✅ RenderStream 全流程通过 —— OBS 应该能出画面了"
+        ),
+        Err(e) => println!(
+            "
+❌ 失败: {e}"
+        ),
     }
     Ok(())
 }

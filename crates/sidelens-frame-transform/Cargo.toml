@@ -1,0 +1,25 @@
+[package]
+name = "sidelens-frame-transform"
+description = "SideLens 的 NV12 几何变换：旋转、裁切、镜像、翻转（跨平台纯逻辑）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# # 为什么单独一个 crate
+#
+# 「把一帧 NV12 转成用户想要的方向」是三处都要做的事：
+#
+# | 调用方 | 场景 |
+# | --- | --- |
+# | sidelensd（手机链路） | 手机横拿/竖拿，用户要固定方向 |
+# | sidelensd（屏幕采集） | 裁掉屏幕边缘的工具栏 |
+# | 将来的预览窗口 | 用户点「镜像」 |
+#
+# 如果每个调用方各写一份，一定会出现「虚拟摄像头里是对的、预览里是错的」
+# 这种最难查的 bug —— 两个消费者看的是同一块共享内存。
+#
+# 抽出来后还有一个收益：它是纯数组运算，没有任何平台依赖，因此**能在
+# Linux CI 上把每一种旋转/裁切的边界都跑一遍**。而在 phone_bridge 里
+# 它被 cfg(windows) 门控，只能在 Windows 上测。
+[dependencies]

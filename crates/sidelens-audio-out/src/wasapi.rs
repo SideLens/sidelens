@@ -74,14 +74,20 @@ use std::ffi::c_void;
 use std::time::Instant;
 
 use windows::core::GUID;
+use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::Media::Audio::{
     eConsole, eRender, IAudioClient, IAudioClock, IAudioRenderClient, IMMDeviceEnumerator,
-    MMDeviceEnumerator, AUDCLNT_SHAREMODE_SHARED, WAVEFORMATEX, WAVEFORMATEXTENSIBLE,
+    MMDeviceEnumerator, AUDCLNT_SHAREMODE_SHARED, DEVICE_STATE_ACTIVE, WAVEFORMATEX,
+    WAVEFORMATEXTENSIBLE,
+};
+use windows::Win32::System::Com::StructuredStorage::{
+    PropVariantClear, PropVariantToStringWithDefault,
 };
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
-    COINIT_MULTITHREADED,
+    COINIT_MULTITHREADED, STGM_READ,
 };
+use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 
 use crate::format::PcmFormat;
 use crate::SinkError;
@@ -214,6 +220,11 @@ impl std::fmt::Debug for WasapiSink {
 impl WasapiSink {
     /// 打开默认播放设备的共享模式流
     pub fn open(format: PcmFormat) -> Result<Self, SinkError> {
+        Self::open_on_device(format, None)
+    }
+
+    /// 打开指定 endpoint id 的共享模式流；`None` 表示系统默认设备。
+    pub fn open_on_device(format: PcmFormat, endpoint_id: Option<&str>) -> Result<Self, SinkError> {
         format.validate().map_err(SinkError::Format)?;
         let t0 = Instant::now();
 
@@ -230,11 +241,20 @@ impl WasapiSink {
                 })?;
 
             // 2) 默认播放设备（eRender = 输出，eConsole = 系统默认）
-            let device = enumerator
-                .GetDefaultAudioEndpoint(eRender, eConsole)
-                .map_err(|e| {
-                    SinkError::NoDevice(format!("取默认播放设备失败（没有音频输出设备？）：{e}"))
-                })?;
+            let device = if let Some(endpoint_id) = endpoint_id {
+                let wide_id: Vec<u16> = endpoint_id.encode_utf16().chain(Some(0)).collect();
+                enumerator
+                    .GetDevice(windows::core::PCWSTR(wide_id.as_ptr()))
+                    .map_err(|e| SinkError::NoDevice(format!("打开所选播放设备失败：{e}")))?
+            } else {
+                enumerator
+                    .GetDefaultAudioEndpoint(eRender, eConsole)
+                    .map_err(|e| {
+                        SinkError::NoDevice(format!(
+                            "取默认播放设备失败（没有音频输出设备？）：{e}"
+                        ))
+                    })?
+            };
 
             // 3) 激活 IAudioClient
             let client: IAudioClient = device
@@ -599,6 +619,52 @@ impl WasapiSink {
         self.resample_pos = pos - take as f64;
         self.last_in_sample = pcm[(take - 1) * in_ch] as f32 * SCALE;
         produced
+    }
+}
+
+/// 当前处于活动状态的播放 endpoint，返回 `(显示名, 不透明 endpoint id)`。
+pub fn enumerate_render_devices() -> Vec<(String, String)> {
+    let Ok(_com) = ComGuard::init() else {
+        return Vec::new();
+    };
+    // SAFETY: COM interfaces are local to this call; all returned ids are freed below.
+    unsafe {
+        let Ok(enumerator): Result<IMMDeviceEnumerator, _> =
+            CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+        else {
+            return Vec::new();
+        };
+        let Ok(devices) = enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE) else {
+            return Vec::new();
+        };
+        let Ok(count) = devices.GetCount() else {
+            return Vec::new();
+        };
+        (0..count)
+            .filter_map(|index| {
+                let device = devices.Item(index).ok()?;
+                let id = device.GetId().ok()?;
+                let endpoint_id = id.to_string().ok();
+                CoTaskMemFree(Some(id.0 as *const c_void));
+                let endpoint_id = endpoint_id?;
+                let display_name = device
+                    .OpenPropertyStore(STGM_READ)
+                    .ok()
+                    .and_then(|store: IPropertyStore| {
+                        store.GetValue(&PKEY_Device_FriendlyName).ok()
+                    })
+                    .map(|mut value| {
+                        let name = PropVariantToStringWithDefault(&value, windows::core::w!(""))
+                            .to_string()
+                            .unwrap_or_default();
+                        let _ = PropVariantClear(&mut value);
+                        name
+                    })
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or_else(|| format!("播放设备 {}", index + 1));
+                Some((display_name, endpoint_id))
+            })
+            .collect()
     }
 }
 

@@ -1,0 +1,27 @@
+[package]
+name = "sidelens-deploy"
+description = "SideLens 的落盘层：安装计划、原子写、备份、注册表（安装器与更新器共用）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# # 为什么单独一个 crate，而不是留在 sidelens-setup 里
+#
+# 「把发布包放到磁盘上」这件事有两个调用方：
+#
+# | 调用方 | 场景 | 失败原子要求 |
+# | --- | --- | --- |
+# | `sidelens-setup` | 用户双击安装包 | 装一半要能回滚，且要写注册表 |
+# | `sidelensd --update` | 应用内更新 | 正在运行的进程要替换自己的文件，替换后要能重启 |
+#
+# 两边的**文件动作**必须完全一致，否则会出现「安装器装出来的目录能被更新器
+# 覆盖，但更新器写出来的目录安装器卸不干净」这类问题。把动作层抽出来后，
+# 只有 CLI 外壳与注册表调用分开，落盘逻辑只有一份。
+#
+# 依赖分层：plan / install 是纯 std，跨平台可测；registry 才需要 windows。
+[dependencies]
+sidelens-update = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }

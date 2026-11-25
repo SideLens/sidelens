@@ -1,0 +1,29 @@
+[package]
+name = "sidelens-frame-effects"
+description = "SideLens 的画面效果：自动取景、背景虚化、人像平滑（无需模型下载的 CPU 实现）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# # 为什么不引 ONNX 模型
+#
+# rng-lens 的人像分割用的是 ONNX 模型，那需要一个几十 MB 的模型文件加
+# onnxruntime 依赖。这有两个现实问题：
+#
+# 1. 模型文件进不了仓库（体积与许可），"可自动验证的发布产物"会退化成
+#    "先下载一个模型"；
+# 2. CI 上没有 GPU，推理路径跑不起来，等于这块永远测不了。
+#
+# 这里换成**不需要模型的近似**：
+#
+# | 效果 | rng-lens 做法 | 本 crate 做法 |
+# | --- | --- | --- |
+# | 自动取景 | 人脸/主体检测网络 | 亮度梯度显著性 + 积分图找最优窗口 |
+# | 背景虚化 | 语义分割 → 逐像素 alpha | 中心椭圆 + 边缘羽化 + 可分离盒式模糊 |
+# | 人像平滑 | 皮肤分割 | 双边滤波近似（保边降噪） |
+#
+# 效果不如模型，但**每一条都能写成断言**，而且默认关闭、开销可测。
+# 模型路线留给有 GPU 与模型分发的场景，见 docs/frame-effects.md 的边界表。
+[dependencies]
+sidelens-frame-transform = { workspace = true }

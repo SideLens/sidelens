@@ -2,11 +2,11 @@
 
 #![allow(unsafe_code)]
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use sidelens_ipc::wire::{FrameSignal, PixelFormat};
+use sidelens_ipc::wire::{FrameModeRequest, FrameSignal, PixelFormat};
 use sidelens_ipc::{PipeClient, ShmRing, DEFAULT_PIPE_NAME, DEFAULT_SHM_NAME};
 
 /// 一帧的像素数据（NV12）
@@ -87,8 +87,9 @@ pub struct FrameSource {
     conn: Mutex<Option<Connection>>,
     last: Mutex<Option<Frame>>,
     stats: Arc<SourceStats>,
-    width: u32,
-    height: u32,
+    width: AtomicU32,
+    height: AtomicU32,
+    fps: AtomicU32,
 }
 
 impl FrameSource {
@@ -111,14 +112,37 @@ impl FrameSource {
             conn: Mutex::new(None),
             last: Mutex::new(None),
             stats: Arc::new(SourceStats::default()),
-            width,
-            height,
+            width: AtomicU32::new(width),
+            height: AtomicU32::new(height),
+            fps: AtomicU32::new(30),
         }
     }
 
     /// 协商的尺寸
     pub fn size(&self) -> (u32, u32) {
-        (self.width, self.height)
+        (
+            self.width.load(Ordering::Acquire),
+            self.height.load(Ordering::Acquire),
+        )
+    }
+
+    pub fn set_mode(&self, width: u32, height: u32, fps: u32) {
+        self.width.store(width, Ordering::Release);
+        self.height.store(height, Ordering::Release);
+        self.fps.store(fps, Ordering::Release);
+        if let Ok(mut last) = self.last.lock() {
+            *last = None;
+        }
+        let mode = FrameModeRequest { width, height, fps };
+        let write_error = self.conn.lock().ok().and_then(|connection| {
+            connection
+                .as_ref()
+                .and_then(|connection| connection.pipe.write_message(&mode.encode()).err())
+        });
+        if let Some(error) = write_error {
+            self.log_connect_failure(format!("更新虚拟摄像头输出模式失败: {error}"));
+            self.disconnect();
+        }
     }
 
     /// 统计
@@ -157,6 +181,16 @@ impl FrameSource {
             return false;
         }
 
+        let mode = FrameModeRequest {
+            width: self.width.load(Ordering::Acquire),
+            height: self.height.load(Ordering::Acquire),
+            fps: self.fps.load(Ordering::Acquire),
+        };
+        if let Err(e) = pipe.write_message(&mode.encode()) {
+            self.log_connect_failure(format!("发送虚拟摄像头输出模式失败: {e}"));
+            return false;
+        }
+
         let ring = match ShmRing::open(&self.shm_name) {
             Ok(r) => r,
             Err(e) => {
@@ -190,17 +224,18 @@ impl FrameSource {
     /// 调用方只需把 `data` 拷进自己的缓冲区。
     pub fn poll(&self, timestamp: i64) -> Frame {
         self.stats.polls.fetch_add(1, Ordering::Relaxed);
+        let (width, height) = self.size();
 
         if !self.ensure_connected() {
-            return self.fallback(timestamp);
+            return self.fallback(timestamp, width, height);
         }
 
         let mut guard = match self.conn.lock() {
             Ok(g) => g,
-            Err(_) => return self.fallback(timestamp),
+            Err(_) => return self.fallback(timestamp, width, height),
         };
         let Some(conn) = guard.as_mut() else {
-            return self.fallback(timestamp);
+            return self.fallback(timestamp, width, height);
         };
 
         // 1. 等管道信号（带超时）
@@ -210,56 +245,53 @@ impl FrameSource {
                 if FrameSignal::decode(&msg[..n]).is_none() {
                     drop(guard);
                     self.disconnect();
-                    return self.fallback(timestamp);
+                    return self.fallback(timestamp, width, height);
                 }
             }
             Ok(_) => {
                 drop(guard);
-                return self.fallback(timestamp);
+                return self.fallback(timestamp, width, height);
             }
             Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
                 drop(guard);
-                return self.fallback(timestamp);
+                return self.fallback(timestamp, width, height);
             }
             Err(_) => {
                 // 管道断开：sidelensd 退出了，下次重连
                 drop(guard);
                 self.disconnect();
-                return self.fallback(timestamp);
+                return self.fallback(timestamp, width, height);
             }
         }
 
         // 2. 从共享内存取最新帧
-        let need = Frame::nv12_len(self.width, self.height);
+        let need = Frame::nv12_len(width, height);
         let mut buf = vec![0u8; need];
         let Some(meta) = conn.ring.read_latest(&mut buf) else {
             self.stats.shm_misses.fetch_add(1, Ordering::Relaxed);
             drop(guard);
-            return self.fallback(timestamp);
+            return self.fallback(timestamp, width, height);
         };
 
         // 3. 校验尺寸
-        if meta.width != self.width
-            || meta.height != self.height
+        if meta.width != width
+            || meta.height != height
             || meta.format != PixelFormat::Nv12 as u32
             || meta.payload_len as usize != need
         {
             self.stats.size_mismatch.fetch_add(1, Ordering::Relaxed);
             drop(guard);
-            return self.fallback(timestamp);
+            return self.fallback(timestamp, width, height);
         }
 
         let frame = Frame {
             data: buf,
-            width: self.width,
-            height: self.height,
+            width,
+            height,
             timestamp,
         };
         let prior_frames = self.stats.frames.fetch_add(1, Ordering::Relaxed);
-        let luma = frame
-            .data
-            .len()
-            .min((self.width as usize) * (self.height as usize));
+        let luma = frame.data.len().min((width as usize) * (height as usize));
         let peak = frame.data[..luma]
             .iter()
             .step_by(97)
@@ -269,7 +301,7 @@ impl FrameSource {
         if prior_frames == 0 {
             crate::log_to_file(&format!(
                 "FrameSource 首次收到共享内存帧: {}x{}，亮度峰值 {peak}",
-                self.width, self.height
+                width, height
             ));
         }
         if peak > 16 && !self.stats.live_frame_logged.swap(true, Ordering::AcqRel) {
@@ -285,7 +317,7 @@ impl FrameSource {
     }
 
     /// 没有新帧时的兜底
-    fn fallback(&self, timestamp: i64) -> Frame {
+    fn fallback(&self, timestamp: i64, width: u32, height: u32) -> Frame {
         self.stats.repeats.fetch_add(1, Ordering::Relaxed);
         let mut l = match self.last.lock() {
             Ok(g) => g,
@@ -295,7 +327,7 @@ impl FrameSource {
             prev.timestamp = timestamp;
             return prev.clone();
         }
-        let mut black = Frame::black(self.width, self.height);
+        let mut black = Frame::black(width, height);
         black.timestamp = timestamp;
         *l = Some(black.clone());
         black

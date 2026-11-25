@@ -687,6 +687,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sidelens-deploy"
+version = "0.1.0"
+dependencies = [
+ "sidelens-update",
+ "windows",
+]
+
+[[package]]
 name = "sidelens-dshow"
 version = "0.1.0"
 dependencies = [
@@ -696,10 +704,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "sidelens-frame-effects"
+version = "0.1.0"
+dependencies = [
+ "sidelens-frame-transform",
+]
+
+[[package]]
+name = "sidelens-frame-transform"
+version = "0.1.0"
+
+[[package]]
 name = "sidelens-ipc"
 version = "0.1.0"
 dependencies = [
  "windows",
+]
+
+[[package]]
+name = "sidelens-phone-proto"
+version = "0.1.0"
+dependencies = [
+ "sidelens-update",
 ]
 
 [[package]]
@@ -726,6 +752,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sidelens-setup"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "sidelens-deploy",
+ "sidelens-update",
+ "windows",
+]
+
+[[package]]
 name = "sidelens-transport"
 version = "0.1.0"
 dependencies = [
@@ -744,6 +780,14 @@ name = "sidelens-ui"
 version = "0.1.0"
 dependencies = [
  "windows",
+]
+
+[[package]]
+name = "sidelens-update"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -778,13 +822,18 @@ dependencies = [
  "sidelens-codec-opus",
  "sidelens-core",
  "sidelens-crypto",
+ "sidelens-deploy",
  "sidelens-dshow",
+ "sidelens-frame-effects",
+ "sidelens-frame-transform",
  "sidelens-ipc",
+ "sidelens-phone-proto",
  "sidelens-proto",
  "sidelens-render",
  "sidelens-render-gpu",
  "sidelens-transport",
  "sidelens-ui",
+ "sidelens-update",
  "sidelens-vcam",
  "tokio",
  "tracing",

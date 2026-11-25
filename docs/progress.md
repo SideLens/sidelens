@@ -45,10 +45,12 @@
 
 | 类型 | 数量 |
 | --- | --- |
-| Rust 单元/集成测试 | **1086** |
-| 产物 | sidelensd.exe / sidelenssend.exe / sidelens_vcam_dll.dll / sidelens_dshow.dll |
+| Rust 单元/集成测试 | **1256** |
+| 产物 | sidelensd.exe / sidelenssend.exe / sidelens-setup.exe / sidelens_vcam_dll.dll / sidelens_dshow.dll |
 | JS 参照实现测试 | 19 |
+| Android JVM 单元测试 | **11**（`gradlew :app:testDebugUnitTest`） |
 | **端到端断言** | **25 项全通过 / 8 场景**（`tools/verify-e2e.ps1`，约 2 分钟） |
+| **发布断言** | **49 项全通过**（`tools/verify-release.ps1`：打包→装→升→卸→更新→版本一致性） |
 | cargo fmt --check | 通过 |
 | cargo clippy -D warnings | 通过 |
 | 跨平台 check（5 target） | **通过**（含 audio-in / audio-out / capture） |

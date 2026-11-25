@@ -1,0 +1,24 @@
+[package]
+name = "sidelens-setup"
+description = "SideLens Windows 安装/卸载程序（per-user，无需管理员即可装文件）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sidelens-setup"
+path = "src/main.rs"
+
+# 落盘动作与注册表都在 sidelens-deploy 里（更新器共用同一份），
+# 这里只剩 CLI 外壳、自测夹具与退出码。
+#
+# 依赖分层（cross-platform.md P1）：self-test 与参数解析是纯 std，
+# 能跨平台编译；注册表在 sidelens-deploy 里按 cfg(windows) 门控。
+[dependencies]
+sidelens-update = { workspace = true }
+sidelens-deploy = { workspace = true }
+anyhow = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }

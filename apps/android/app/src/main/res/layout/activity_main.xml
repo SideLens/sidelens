@@ -1,25 +1,250 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="32dp">
+    android:background="#101318">
 
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="初始化…"
-        android:textSize="18sp"
-        android:gravity="center"
-        android:layout_marginBottom="32dp" />
-
-    <Button
-        android:id="@+id/toggleButton"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="开始共享"
-        android:textSize="16sp" />
+        android:layout_height="match_parent">
 
-</LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="SideLens"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="20dp"
+                android:text="初始化…"
+                android:textColor="#B9C2D0"
+                android:textSize="15sp" />
+
+            <!-- 电脑端下发的「手机端需要升级」提示。默认隐藏，
+                 由 MainActivity.applyUpgradePrompt 按 level 决定是否显示。 -->
+            <TextView
+                android:id="@+id/upgradeBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:background="#3A2A12"
+                android:padding="12dp"
+                android:textColor="#FFD08A"
+                android:textSize="14sp"
+                android:visibility="gone"
+                tools:ignore="HardcodedText"
+                android:text="" />
+
+
+            <Button
+                android:id="@+id/discoverButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="18dp"
+                android:text="搜索同一 Wi-Fi 下的电脑" />
+
+            <EditText
+                android:id="@+id/hostInput"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="18dp"
+                android:hint="电脑 IP（留空则使用 USB / 最近发现的电脑）"
+                android:inputType="textUri"
+                android:singleLine="true"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#8290A4" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="摄像头"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/cameraSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="4dp"
+                android:backgroundTint="#8290A4" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="采集画质"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/profileSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="4dp"
+                android:backgroundTint="#8290A4" />
+
+            <TextView
+                android:id="@+id/zoomLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="变焦 1.0×"
+                android:textColor="#FFFFFF" />
+
+            <SeekBar
+                android:id="@+id/zoomSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="#5B9BFF"
+                android:thumbTint="#5B9BFF" />
+
+            <Switch
+                android:id="@+id/torchSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="补光灯"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/manualFocusSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="手动对焦"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <SeekBar
+                android:id="@+id/focusSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:max="100"
+                android:progressTint="#5B9BFF"
+                android:thumbTint="#5B9BFF" />
+
+            <Switch
+                android:id="@+id/exposureLockSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="锁定曝光"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/faceExposureSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="脸部优先曝光"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <TextView
+                android:id="@+id/exposureLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="曝光补偿 0"
+                android:textColor="#FFFFFF" />
+
+            <SeekBar
+                android:id="@+id/exposureSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="24"
+                android:progress="12"
+                android:progressTint="#5B9BFF"
+                android:thumbTint="#5B9BFF" />
+
+            <Switch
+                android:id="@+id/awbLockSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="锁定白平衡"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/stabilizationSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="视频防抖"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/microphoneSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="共享手机麦克风"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/rawMicrophoneSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:enabled="false"
+                android:text="原始麦克风（关闭语音处理）"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/blackoutSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="共享时隐藏屏幕"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Switch
+                android:id="@+id/pauseSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="暂离：暂停视频并保留最后画面"
+                android:textColor="#FFFFFF"
+                android:thumbTint="#5B9BFF"
+                android:trackTint="#65758B" />
+
+            <Button
+                android:id="@+id/toggleButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="16dp"
+                android:text="开始共享"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <View
+        android:id="@+id/blackoutOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
+</FrameLayout>

@@ -61,6 +61,8 @@ pub enum ControlKind {
     Checkbox,
     /// 下拉框（COMBOBOX + CBS_DROPDOWNLIST）
     Combo,
+    /// 原生滑块（TRACKBAR）
+    Slider,
 }
 
 impl ControlKind {
@@ -71,6 +73,7 @@ impl ControlKind {
             ControlKind::Button => "按钮",
             ControlKind::Checkbox => "复选框",
             ControlKind::Combo => "下拉框",
+            ControlKind::Slider => "滑块",
         }
     }
 }

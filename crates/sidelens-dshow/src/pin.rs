@@ -35,6 +35,7 @@ use windows::Win32::System::Com::{
 
 use crate::source::{Frame, FrameSource};
 
+#[cfg(test)]
 const FRAME_INTERVAL: i64 = 10_000_000 / 30;
 const NV12_FOURCC: u32 = u32::from_le_bytes(*b"NV12");
 const KSPROPERTY_SUPPORT_GET: u32 = 1;
@@ -82,6 +83,7 @@ impl PixelLayout {
 struct VideoFormat {
     width: u32,
     height: u32,
+    fps: u32,
     layout: PixelLayout,
     bottom_up: bool,
 }
@@ -91,9 +93,19 @@ impl VideoFormat {
         Self {
             width,
             height,
+            fps: 30,
             layout,
             bottom_up: layout != PixelLayout::Nv12,
         }
+    }
+
+    fn with_fps(mut self, fps: u32) -> Self {
+        self.fps = fps.max(1);
+        self
+    }
+
+    fn frame_interval(self) -> i64 {
+        10_000_000 / self.fps as i64
     }
 
     fn size(self) -> usize {
@@ -102,8 +114,8 @@ impl VideoFormat {
 
     fn header(self) -> VIDEOINFOHEADER {
         VIDEOINFOHEADER {
-            dwBitRate: (self.size() * 8 * 30) as u32,
-            AvgTimePerFrame: FRAME_INTERVAL,
+            dwBitRate: (self.size() * 8 * self.fps as usize) as u32,
+            AvgTimePerFrame: self.frame_interval(),
             bmiHeader: BITMAPINFOHEADER {
                 biSize: size_of::<BITMAPINFOHEADER>() as u32,
                 biWidth: self.width as i32,
@@ -152,7 +164,7 @@ impl VideoFormat {
             || header.biBitCount != self.layout.bits()
             || header.biCompression != self.header().bmiHeader.biCompression
             || (header.biSizeImage != 0 && header.biSizeImage as usize != self.size())
-            || (interval != 0 && interval.abs_diff(FRAME_INTERVAL) > 1)
+            || (interval != 0 && interval.abs_diff(self.frame_interval()) > 1)
         {
             return None;
         }
@@ -310,9 +322,28 @@ impl OutputPin {
             .expect("SideLens filter supports weak references");
     }
 
-    fn formats(&self) -> [VideoFormat; 3] {
-        let (width, height) = self.source.size();
-        PixelLayout::SUPPORTED.map(|layout| VideoFormat::new(width, height, layout))
+    fn formats(&self) -> Vec<VideoFormat> {
+        let mut modes = vec![
+            (1280, 720),
+            (1920, 1080),
+            (640, 480),
+            (2560, 1440),
+            (3840, 2160),
+        ];
+        let current = self.source.size();
+        if let Some(index) = modes.iter().position(|mode| *mode == current) {
+            modes.swap(0, index);
+        }
+        modes
+            .into_iter()
+            .flat_map(|(width, height)| {
+                [30, 60].into_iter().flat_map(move |fps| {
+                    PixelLayout::SUPPORTED
+                        .into_iter()
+                        .map(move |layout| VideoFormat::new(width, height, layout).with_fps(fps))
+                })
+            })
+            .collect()
     }
 
     unsafe fn parse_type(&self, mt: &AM_MEDIA_TYPE) -> Option<VideoFormat> {
@@ -452,10 +483,12 @@ impl IPin_Impl for OutputPin_Impl {
                             allocator,
                             format: video,
                         });
+                        *self.selected.lock().map_err(|_| E_FAIL)? = video;
                         crate::log_to_file(&format!(
                             "DirectShow 引脚已连接，格式 {:?}",
                             video.layout
                         ));
+                        self.source.set_mode(video.width, video.height, video.fps);
                         return Ok(());
                     }
                     Err(err) => {
@@ -568,7 +601,7 @@ impl IPin_Impl for OutputPin_Impl {
     }
 
     fn EnumMediaTypes(&self) -> WinResult<IEnumMediaTypes> {
-        let formats = self.formats().map(MediaType::new);
+        let formats = self.formats().into_iter().map(MediaType::new).collect();
         Ok(ComObject::new(MediaTypes {
             formats,
             index: Mutex::new(0),
@@ -628,7 +661,7 @@ impl IAMStreamConfig_Impl for OutputPin_Impl {
             return Err(E_POINTER.into());
         }
         unsafe {
-            *count = PixelLayout::SUPPORTED.len() as i32;
+            *count = self.formats().len() as i32;
             *size = size_of::<VIDEO_STREAM_CONFIG_CAPS>() as i32;
         }
         Ok(())
@@ -666,8 +699,8 @@ impl IAMStreamConfig_Impl for OutputPin_Impl {
             MaxOutputSize: size,
             OutputGranularityX: 1,
             OutputGranularityY: 1,
-            MinFrameInterval: FRAME_INTERVAL,
-            MaxFrameInterval: FRAME_INTERVAL,
+            MinFrameInterval: video.frame_interval(),
+            MaxFrameInterval: video.frame_interval(),
             MinBitsPerSecond: bitrate,
             MaxBitsPerSecond: bitrate,
             ..Default::default()
@@ -684,7 +717,7 @@ impl IAMStreamConfig_Impl for OutputPin_Impl {
 
 #[implement(IEnumMediaTypes)]
 struct MediaTypes {
-    formats: [MediaType; 3],
+    formats: Vec<MediaType>,
     index: Mutex<usize>,
 }
 
@@ -889,7 +922,8 @@ fn deliver(delivery: Delivery, source: &FrameSource, stop: &AtomicBool) {
         return;
     }
     let started = Instant::now();
-    let frame_period = Duration::from_nanos(FRAME_INTERVAL as u64 * 100);
+    let interval = delivery.format.frame_interval();
+    let frame_period = Duration::from_nanos(interval as u64 * 100);
     let mut deadline = started;
     let mut sent = 0u64;
     let mut logged_error = false;
@@ -970,7 +1004,10 @@ unsafe fn deliver_sample(
         std::slice::from_raw_parts_mut(pixels, size),
     );
     sample.SetActualDataLength(size as i32)?;
-    sample.SetTime(Some(&start), Some(&(start + FRAME_INTERVAL)))?;
+    sample.SetTime(
+        Some(&start),
+        Some(&(start + delivery.format.frame_interval())),
+    )?;
     sample.SetSyncPoint(true)?;
     sample.SetDiscontinuity(first)?;
     // Preserve S_FALSE (the input pin is flushing) instead of counting it as delivery.

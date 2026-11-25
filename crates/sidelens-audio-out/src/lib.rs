@@ -68,7 +68,7 @@ pub use format::{
 };
 
 #[cfg(windows)]
-pub use wasapi::{default_device_id, WasapiSink};
+pub use wasapi::{default_device_id, enumerate_render_devices, WasapiSink};
 
 /// 音频输出层的错误
 #[derive(Debug)]
@@ -187,6 +187,21 @@ impl AudioSink {
         })
     }
 
+    /// 在选定的 Windows 播放设备播放；`None` 使用系统默认设备。
+    #[cfg(windows)]
+    pub fn new_on_device(format: PcmFormat, endpoint_id: Option<&str>) -> Result<Self, SinkError> {
+        let sink = WasapiSink::open_on_device(format, endpoint_id)?;
+        Ok(Self {
+            mode: SinkMode::Device,
+            format,
+            backend: Backend::Wasapi(sink),
+            write_calls: 0,
+            write_stalls: 0,
+            write_ns: 0,
+            last_write_ns: 0,
+        })
+    }
+
     /// 创建真实声卡输出（非 Windows：恒失败）
     ///
     /// 非 Windows 上没有 WASAPI。保留这个签名是为了让调用方代码不分叉，
@@ -197,6 +212,12 @@ impl AudioSink {
         Err(SinkError::NoDevice(
             "本平台没有 WASAPI 实现（只有 Windows 有）".into(),
         ))
+    }
+
+    /// 非 Windows 平台暂不支持按 endpoint 选择。
+    #[cfg(not(windows))]
+    pub fn new_on_device(format: PcmFormat, _endpoint_id: Option<&str>) -> Result<Self, SinkError> {
+        Self::new(format)
     }
 
     /// 创建一个 headless sink：不碰任何平台 API，`write` 只累计计数
