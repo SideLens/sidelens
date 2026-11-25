@@ -16,9 +16,11 @@
 | 7 | NACK 逻辑（缓存 + 请求 + 重发） | 完成 | healed=143 |
 | 8 | 弱网模拟与验证 | 完成 | 确定性丢包器 |
 | 9 | 跨设备时钟同步 | 完成 | NTP 式四时间戳，11+3 测试 |
-| 10 | 真实摄像头采集（Windows） | 阻塞 | 本机无摄像头设备，见 blockers.md B1 |
+| 10 | 真实摄像头采集（Windows） | 绕行 | 本机无摄像头，改由手机端提供（见 21） |
 | 11 | H.264 编解码 | 完成 | **编解码双通并已接入 daemon**：编码 529µs / 解码 2440µs（含拷贝）/ 实测 601 帧 0 失败 |
-| 12 | 虚拟摄像头 | 结案（API 路线不通） | 18 个假设全排除，需换 DriverPackage，见 blockers.md B3 |
+| 12 | 虚拟摄像头（MFCreateVirtualCamera） | 结案（路线不通） | 19 个假设 + 13 组实验全排除，见 blockers.md B3 |
+| 12b | 虚拟摄像头（DirectShow） | **完成** | 源滤镜已注册成功，系统摄像头列表可见，见 [dshow.md](dshow.md) |
+| 21 | **Android 端（手机当摄像头）** | **进行中** | Camera2 + MediaCodec 零拷贝，一加 13 实测，见 [android.md](android.md) |
 | 18 | IMFMediaSource 实现 | 完成 | IMFActivate + IMFMediaSourceEx + 8 属性 NV12 |
 | 27 | 音频采集（`sidelens-audio-in`） | 完成 | WASAPI 麦克风 / **loopback** / headless；**已接发送端**（`--audio-in`） |
 | 28 | 屏幕采集（`sidelens-capture`） | 完成 | GDI 60ms / **DXGI 22.7ms** @4K；**已接发送端**（`--screen`）；**支持缩放**（4K→720p 后带宽 15.2→2.1 Mbps） |
@@ -43,8 +45,8 @@
 
 | 类型 | 数量 |
 | --- | --- |
-| Rust 单元/集成测试 | **1066** |
-| 产物 | sidelensd.exe / sidelenssend.exe / sidelens_vcam_dll.dll |
+| Rust 单元/集成测试 | **1086** |
+| 产物 | sidelensd.exe / sidelenssend.exe / sidelens_vcam_dll.dll / sidelens_dshow.dll |
 | JS 参照实现测试 | 19 |
 | **端到端断言** | **25 项全通过 / 8 场景**（`tools/verify-e2e.ps1`，约 2 分钟） |
 | cargo fmt --check | 通过 |
@@ -6551,3 +6553,230 @@ Linux    核心 4 crate 全过 + 端到端 UDP 三档场景
 fmt/clippy  0 / CLEAN
 git      2 次提交，303 文件 / 96,334 行
 ```
+
+## 第二十轮：转 DirectShow（虚拟摄像头第一次真正出现在系统里）
+
+### 一、上一轮的结论
+
+第十九轮把 `MFCreateVirtualCamera` 路线彻底证伪了：六组 `EnableFrameServerMode` A/B
+（不存在 / =1 / =0，顺序反转两轮）+ 七种调用参数组合，**全部返回同一个 `0xC00D36BD`**。
+
+关键证据：DLL 侧日志显示 FrameServer 走完 13 步、`ActivateObject` 成功，
+但**从未调用 `GetMediaTypeByIndex`**，然后直接 `Shutdown`。
+
+这不是「某个参数不对」，是「这条路径不通」。
+
+### 二、为什么选 DirectShow
+
+| 维度 | MFCreateVirtualCamera | DirectShow 源滤镜 |
+| --- | --- | --- |
+| 注册 | API 调用 | `regsvr32` |
+| 驱动 | 不需要 | 不需要 |
+| 签名 | 不需要 | 不需要 |
+| 最低系统 | Win11 22000+ | 全版本 |
+| 权限 | 管理员（每次） | 管理员（仅注册） |
+| 生命周期 | 进程退出即消失 | 注册后常驻 |
+
+OBS 用这条路走了十几年，兼容性有保证。
+
+### 三、新建 crate：`sidelens-dshow`
+
+```text
+crates/sidelens-dshow/
+  src/lib.rs            COM 导出（4 个函数）
+  src/filter.rs         源滤镜（IBaseFilter + IMediaFilter + IPersist）
+  src/pin.rs            输出引脚（IPin + IAMStreamConfig + IEnumMediaTypes）
+  src/source.rs         帧来源（复用 sidelens-ipc）
+  src/registration.rs   注册表登记
+```
+
+`crate-type = ["cdylib", "rlib"]` —— cdylib 给系统加载，rlib 让测试能直接调。
+
+### 四、四个真实踩坑
+
+#### 1. `GetModuleFileNameW(None, ...)` 返回的是宿主进程路径
+
+第一版注册后 `InprocServer32` 写成：
+
+```text
+C:\Windows\system32\regsvr32.exe    ← 错
+```
+
+因为 `regsvr32` 加载 DLL 后调 `DllRegisterServer`，此时**进程主模块是 regsvr32**。
+注册表看起来成功了，但 `CoCreateInstance` 永远拿不到滤镜。
+
+修法：`GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, <本函数地址>, ...)`
+反查所属模块。加了回归测试守住。
+
+#### 2. `AM_MEDIA_TYPE` 不在 `DirectShow` 模块下
+
+`windows crate` 把它挂在 `Win32::Media::MediaFoundation` —— 因为 MF 复用了这些结构。
+同类还有 `VIDEOINFOHEADER` / `PIN_INFO` / `CLSID_VideoInputDeviceCategory`。
+
+#### 3. `IBaseFilter` 有三层父接口
+
+```text
+IBaseFilter ← IMediaFilter ← IPersist ← IUnknown
+```
+
+`#[implement]` 必须写全四个。状态机方法在 `IMediaFilter`，`GetClassID` 在 `IPersist`。
+只写 `IBaseFilter` 会报一堆 `method is not a member of trait`。
+
+#### 4. `GUID` 的 `Debug` 没有 `GUID(...)` 包装
+
+```rust
+format!("{:?}", guid)   // 9E4B7C31-5A2D-4F8E-B1C6-3D7A0E5F92B4
+```
+
+第一版按 `GUID(...)` 做 `replace`，得到的是原样字符串，写进注册表是无效键名。
+单元测试 `clsid_string_has_braces` 抓到的。
+
+### 五、实测：滤镜出现在系统里
+
+```text
+[1/3] 枚举 CLSID_VideoInputDeviceCategory
+    ✅ @device:sw:{860BB310-...}\SideLens Camera
+    共 4 个视频捕获设备
+
+[2/3] CoCreateInstance(CLSID_SIDELENS_DSHOW)
+    ✅ 创建成功
+    ClassID = 9E4B7C31-5A2D-4F8E-B1C6-3D7A0E5F92B4
+
+[3/3] IBaseFilter::EnumPins
+    引脚 1: 名字="Output" 方向=1（输出）
+```
+
+**这是十九轮以来第一次真正成功** —— 滤镜在系统的视频捕获设备类别里，
+任何用 DirectShow 或 MF 枚举摄像头的应用都能看到。
+
+### 六、验证
+
+```text
+sidelens-dshow 单元测试   20 passed / 0 failed
+全量测试                  1086 passed / 0 failed（原 1066 + 20）
+fmt / clippy              0 / CLEAN
+端到端（Quick）            25 项断言全通过
+```
+
+### 七、已知限制
+
+| 限制 | 说明 |
+| --- | --- |
+| 分辨率固定 1280x720 | 未接 `IAMStreamConfig::SetFormat` 动态协商 |
+| 只给 NV12 | 官方示例给 RGB32 + NV12，老应用可能只认 RGB32 |
+| UWP 看不到 | DirectShow 是桌面 API |
+| 未接真实帧源 | `FrameSource` 已就绪，`sidelensd` 侧还没开始灌帧 |
+
+下一轮：把 `sidelensd` 的屏幕采集接到共享内存管道，让滤镜出真实画面。
+
+## 第二十一轮：Android 端环境搭建 + 手机摄像头链路
+
+### 一、产品定位纠偏
+
+翻早期调研 `phonecam-research/research-summary.md`，第一句话是：
+
+> 一套能把**手机当作电脑摄像头 + 麦克风**的软件
+
+而 README 之前写的是「共享屏幕、麦克风、系统声音」——**产品定位漂移了**。
+
+屏幕采集是第四十八轮引入的，当时本机没有摄像头（B1），用它来验证视频链路。
+它本身是真实功能，但**不是原始定位**。这一轮把重心拨回来。
+
+### 二、环境搭建（全部在 D:\software）
+
+| 组件 | 版本 | 路径 |
+| --- | --- | --- |
+| JDK | Temurin 21.0.13.1 | `D:\software\Java\jdk-21.0.13.1+2` |
+| Android SDK | cmdline-tools 19.0 | `D:\software\Android\Sdk` |
+| platform-tools | adb 37.0.3 | 同上 |
+| build-tools | 35.0.0 | 同上 |
+| platform | android-35 | 同上 |
+| NDK | 29.0.14206865 | 同上 |
+| Gradle | 8.11.1 | `D:\software\Gradle\gradle-8.11.1` |
+| Gradle 缓存 | — | `D:\software\Gradle\cache` |
+
+Rust target：`aarch64-linux-android`。
+
+### 三、目标设备
+
+```text
+型号      OnePlus 13 (PJZ110)
+系统      Android 17 / API 37
+架构      arm64-v8a
+SoC       骁龙 8 Elite (qcom)
+摄像头    后置 + 前置均可用
+```
+
+### 四、架构决策：采集用 Kotlin，不硬塞进 Rust
+
+| 方案 | 代价 |
+| --- | --- |
+| Rust 调 Camera2 (C++) | Camera2 的 C++ 接口在 NDK 里**不公开**，要写大量 JNI 绑定 |
+| **Kotlin 采集 + Rust 做协议** | 符合 Android 习惯，硬件编码器由系统管理 |
+
+选后者。Rust 的价值在协议、时钟、抖动缓冲 —— 那部分已在 `sidelens-core` 里。
+
+### 五、零拷贝链路
+
+```text
+Camera2 HAL
+   ↓ 直接写入
+MediaCodec.createInputSurface()   ← 不经过 CPU 内存
+   ↓ 硬件 H.264 编码
+ByteBuffer → TCP → Windows
+```
+
+默认路径是 `ImageReader` → CPU → 编码器，720p30 要 40 MB/s 的拷贝。
+这里把编码器的 input Surface 当作 `createCaptureSession` 的输出目标，
+帧从 HAL 直接进硬件编码器。
+
+### 六、为什么第一步用裸 TCP
+
+现有 UDP 协议带分片 + NACK + FEC，那是**为丢包设计的**。
+第一步只需验证链路能不能通。裸 TCP 半天跑通，丢包由内核兜住。
+等链路验证完再换 UDP。
+
+线格式：`[4B 长度 BE][8B ptsUs BE][1B flags][N B H.264]`
+
+### 七、接收端已验证
+
+用 `crates/sidelens-codec/tests/data/golden-720p.h264`（136418 字节）模拟手机发送：
+
+```text
+=== 统计 ===
+帧数    1
+关键帧  1
+字节    136418 (133.2 KB)
+
+=== 独立解析器验证 ===
+target\test-recv.h264  31帧  1280x720  关键帧=1  136418B
+
+=== 逐字节比对 ===
+源: 136418 字节
+收: 136418 字节
+完全一致: True
+```
+
+**接收端链路完全正确**，等手机端接上即可验证真实画面。
+
+### 八、踩坑
+
+#### Gradle wrapper 下载超时
+
+`gradlew.bat` 首次运行要下载 Gradle 发行版，10 秒超时失败。
+解法：把本地已下载的 zip 放进 wrapper 缓存目录
+（`GRADLE_USER_HOME/wrapper/dists/gradle-8.11.1-bin/<hash>/`），
+并建 `.ok` 标记文件跳过校验。
+
+#### `CONTROL_AE_TARGET_FPS_RANGE` 必须固定
+
+不设的话暗光下相机自动降到 15fps，接收端抖动缓冲会反复调整，
+表现为周期性卡顿且日志里看不出原因。
+
+#### `tcpNoDelay` 不是可选项
+
+Nagle 会把 2-5 KB 的 P 帧攒住，表现为「每隔几十毫秒突然到一批帧」。
+
+#### `createCaptureSession` 尺寸不支持时不报错
+
+传不支持的分辨率会静默失败。启动前必须 `getOutputSizes` 打印支持列表。

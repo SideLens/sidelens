@@ -1,0 +1,19 @@
+[package]
+name = "sidelens-dshow"
+description = "SideLens DirectShow 虚拟摄像头（源滤镜）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "sidelens_dshow"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 传帧层：命名管道 + 共享内存（与 sidelens-vcam 共用，已验证）
+sidelens-ipc = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
+windows-core = { workspace = true }

@@ -8,7 +8,8 @@
 > 视频与音频两条链路的两端都是真实设备，中间是真实网络协议。
 > 界面是原生 Win32 控件（不用 webview），视频走 D3D11 GPU 渲染。
 >
-> **45,000 行 Rust / 16 个 crate / 1059 个测试 / 5 个平台交叉编译通过。**
+> **66,000 行 Rust / 18 个 crate / 1086 个测试 / 5 个平台交叉编译通过。**
+> **Android 端已打通：一加 13 摄像头 → USB → 虚拟摄像头，28.8 fps。**
 
 ---
 
@@ -47,7 +48,9 @@
 | 帧加密 | ✅ | X25519 + ChaCha20-Poly1305，重放防护 |
 | 抖动缓冲自适应 | ✅ | 视频/音频两套参数，p50 从 20.95 降到 13.77ms |
 | 音画同步 | ✅ | 音频主时钟 + 偏移限速 |
-| 虚拟摄像头 | ⚠️ 结案 | API 路线在当前 Windows build 上走不通，需 DriverPackage |
+| 虚拟摄像头 | ✅ | **DirectShow 源滤镜**（`regsvr32` 注册，零驱动零签名） |
+| **手机摄像头采集** | ✅ | **Camera2 + MediaCodec 零拷贝**，一加 13 实测 1280x720@30 |
+| 手机 → 电脑传输 | ✅ | USB（adb reverse + TCP），28.8 fps / 4.7 Mbps |
 
 ---
 
@@ -200,14 +203,17 @@ crates/
   sidelens-render-gpu/  渲染（D3D11 + flip-model，**17.1x**）
   sidelens-ui/          原生界面（Win32 控件 + DPI 感知）
   sidelens-ipc/         命名管道 + 共享内存（seqlock）
-  sidelens-vcam/        虚拟摄像头（结案）
-  sidelens-vcam-dll/    虚拟摄像头媒体源 DLL
+  sidelens-vcam/        MFCreateVirtualCamera 路线（结案，19 个假设全排除）
+  sidelens-vcam-dll/    该路线的媒体源 DLL
+  sidelens-dshow/       **DirectShow 虚拟摄像头（可用）**
+  sidelens-android/     Android 端 Rust 桥接（JNI）
 apps/
   sidelensd/            接收端常驻服务
   sidelenssend/         发送端
 packages/               JS 参照实现（协议 golden 向量对齐 Rust）
+apps/android/           **Android 采集端**（Camera2 + MediaCodec）
 tools/                  独立验证脚本（H.264 解析器、跨平台检查、A/B 基准）
-docs/                   31 篇设计文档，约 700 KB
+docs/                   42 篇设计文档，约 770 KB
 ```
 
 ---
@@ -218,13 +224,14 @@ docs/                   31 篇设计文档，约 700 KB
 
 | 想知道什么 | 读哪篇 |
 | --- | --- |
-| 项目做到哪了、每一轮的实测数字 | [progress.md](docs/progress.md)（**54 轮**） |
+| 项目做到哪了、每一轮的实测数字 | [progress.md](docs/progress.md)（**62 轮**） |
 | 什么做不了、为什么 | [blockers.md](docs/blockers.md) |
 | 延迟怎么优化的 | [latency-budget.md](docs/latency-budget.md) |
 | GPU 渲染为什么快 17 倍 | [render-gpu.md](docs/render-gpu.md) |
 | 界面为什么不用 webview | [ui.md](docs/ui.md) |
 | FEC 该不该开 | [fec-link.md](docs/fec-link.md) |
 | 屏幕采集踩过什么坑 | [capture.md](docs/capture.md) |
+| 手机端怎么采集 | [android.md](docs/android.md) |
 
 ---
 
@@ -259,8 +266,8 @@ GDI 路径是「NV12 → CPU 转 RGBA → 拷进 DIB → StretchDIBits → DWM�
 | 限制 | 说明 |
 | --- | --- |
 | 只在 Windows 上运行 | 5 个 target 编译通过，但 macOS/Linux 没有平台实现 |
-| 没有真实摄像头采集 | 本机无摄像头（见 blockers B1），屏幕采集已通 |
-| 虚拟摄像头走不通 | API 路线需 DriverPackage + 桩驱动（见 blockers B3） |
+| 手机端需 USB 连接 | 走 adb reverse，还没做局域网自动发现 |
+| 虚拟摄像头分辨率固定 | DirectShow 路线当前只给 1280x720 NV12（见 docs/dshow.md） |
 | 视频按 1:1 显示 | 不填满视频区，刻意不拉伸（便于排查裁剪问题） |
 | 跨设备未实测 | 时钟同步协议已实现，但只在同机验证 |
 

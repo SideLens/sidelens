@@ -53,8 +53,8 @@ use windows::Win32::Media::MediaFoundation::{
     MFCreatePresentationDescriptor, MFCreateStreamDescriptor, MFMediaType_Video,
     MFVideoFormat_NV12, MFVideoInterlace_Progressive, MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS,
     MF_E_INVALIDREQUEST, MF_E_SHUTDOWN, MF_E_UNSUPPORTED_SERVICE, MF_MT_ALL_SAMPLES_INDEPENDENT,
-    MF_MT_AVG_BITRATE, MF_MT_FRAME_RATE, MF_MT_FRAME_SIZE, MF_MT_INTERLACE_MODE, MF_MT_MAJOR_TYPE,
-    MF_MT_PIXEL_ASPECT_RATIO, MF_MT_SUBTYPE,
+    MF_MT_AVG_BITRATE, MF_MT_DEFAULT_STRIDE, MF_MT_FRAME_RATE, MF_MT_FRAME_SIZE,
+    MF_MT_INTERLACE_MODE, MF_MT_MAJOR_TYPE, MF_MT_PIXEL_ASPECT_RATIO, MF_MT_SUBTYPE,
 };
 use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
 use windows::Win32::System::Com::{
@@ -460,6 +460,17 @@ fn build_nv12_types(cfg: SourceConfig) -> WinResult<Vec<IMFMediaType>> {
                 &MF_MT_FRAME_RATE,
                 ((cfg.frame_rate.numerator as u64) << 32) | cfg.frame_rate.denominator as u64,
             )?;
+            // 默认跨距（每行字节数）。
+            //
+            // 官方 VCamSample 的两种格式都设了这一项：
+            //   RGB32 → width * 4
+            //   NV12  → width * 1.5
+            //
+            // 缺了它，FrameServer 在格式协商阶段拿不到「一行多少字节」，
+            // 会把整个媒体类型判为无效 —— Start 返回 MF_E_INVALIDTYPE
+            // (0xC00D36BD)。这是第十九轮隔离实验定位到的。
+            let stride = (res.width as f64 * 1.5) as u32;
+            mt.SetUINT32(&MF_MT_DEFAULT_STRIDE, stride)?;
             // 像素宽高比：1:1（方形像素）。官方示例里有这一条。
             mt.SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1u64 << 32) | 1u64)?;
             // 平均码率：官方按 宽*1.5*高*8*帧率 估算 NV12

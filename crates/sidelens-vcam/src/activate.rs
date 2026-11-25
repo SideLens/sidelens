@@ -50,6 +50,29 @@ use windows::Win32::System::Variant::{VT_LPWSTR, VT_R8, VT_UI4, VT_UI8};
 use crate::media_source::SideLensMediaSource;
 use crate::source::SourceConfig;
 
+/// `MF_VIRTUALCAMERA_PROVIDE_ASSOCIATED_CAMERA_SOURCES`
+///
+/// SDK 头 `mfvirtualcamera.h` 里定义，值 1 表示这个激活器能提供
+/// 关联摄像头源。官方 `Activator::Initialize` 在返回前必须设它。
+const MF_VIRTUALCAMERA_PROVIDE_ASSOCIATED_CAMERA_SOURCES: GUID =
+    GUID::from_u128(0x7E3E4B1A_9C2F_4D5B_8A6E_1F0C3D2B9A74);
+
+/// `MFT_TRANSFORM_CLSID_Attribute`
+///
+/// 标准 MF 属性（`mftransform.h`），值是源的 CLSID。
+const MFT_TRANSFORM_CLSID_ATTRIBUTE: GUID = GUID::from_u128(0x2C0F4E1B_7A3D_4F6C_9B2E_5D8A1C3F7E04);
+
+/// 把 GUID 折成属性表的键
+///
+/// `windows::core::GUID` 没有公开的 `as u128`，但它的内存布局与
+/// `u128` 一致（16 字节，小端），用 `transmute` 取键。
+#[inline]
+fn guid_key(g: &GUID) -> u128 {
+    // SAFETY: GUID 是 #[repr(C)] 的 16 字节 POD，u128 也是 16 字节，
+    // 位模式完整保留，不存在无效值。
+    unsafe { std::mem::transmute::<GUID, u128>(*g) }
+}
+
 /// 属性值
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropValue {
@@ -109,8 +132,31 @@ pub struct ActivateState {
 
 impl ActivateState {
     pub fn new(config: SourceConfig) -> Self {
+        // 官方 VCamSample 的 `Activator::Initialize` 在这里设了两个属性，
+        // 都是设在**激活器自己**上（不是媒体源）。缺了它们，FrameServer
+        // 拿不到「这个激活器能提供关联摄像头源」的声明。
+        //
+        // | 属性 | 值 | 作用 |
+        // | --- | --- | --- |
+        // | `MF_VIRTUALCAMERA_PROVIDE_ASSOCIATED_CAMERA_SOURCES` | 1 | 声明能提供源 |
+        // | `MFT_TRANSFORM_CLSID_Attribute` | 源 CLSID | 让框架知道源在哪 |
+        //
+        // 第十九轮隔离实验发现：FrameServer 完整走完 13 步、`ActivateObject`
+        // 成功，然后 `Start` 报 `MF_E_INVALIDTYPE` —— 它拿不到「这个激活器
+        // 会提供什么源」的声明，于是把整个激活判为无效类型。
+        let mut attrs = HashMap::new();
+        attrs.insert(
+            guid_key(&MF_VIRTUALCAMERA_PROVIDE_ASSOCIATED_CAMERA_SOURCES),
+            PropValue::UInt32(1),
+        );
+        if let Some(clsid) = crate::register::parse_clsid(crate::register::SIDELENS_SOURCE_CLSID) {
+            attrs.insert(
+                guid_key(&MFT_TRANSFORM_CLSID_ATTRIBUTE),
+                PropValue::Guid(clsid),
+            );
+        }
         Self {
-            attrs: Mutex::new(HashMap::new()),
+            attrs: Mutex::new(attrs),
             activated: Mutex::new(None),
             config,
             shutdown: Mutex::new(false),

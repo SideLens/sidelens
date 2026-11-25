@@ -44,6 +44,8 @@ windows = { workspace = true }
 # H.264 解码器（第三十八轮接入）。
 # 放 target 限定块：它是 Media Foundation 专属，非 Windows 上没有实现。
 sidelens-codec-mf = { workspace = true }
+# DirectShow 滤镜（建图测试用）
+sidelens-dshow = { workspace = true }
 # 渲染层（第三十九轮接入）。NV12 转 RGBA + GDI 显示。
 # 转换层是跨平台的，但 `Renderer` 是 Windows 专属。
 sidelens-render = { workspace = true }

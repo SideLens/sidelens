@@ -1,12 +1,12 @@
 # SideLens 文档索引
 
-> 34 篇文档、约 650 KB。按「想解决什么问题」组织，不按时间顺序。
+> 42 篇文档、约 770 KB。按「想解决什么问题」组织，不按时间顺序。
 
 ## 从这里开始
 
 | 文档 | 什么时候读 |
 | --- | --- |
-| [progress.md](progress.md) | 想知道项目做到哪了、每一轮的实测数字。**54 轮的完整记录** |
+| [progress.md](progress.md) | 想知道项目做到哪了、每一轮的实测数字。**62 轮的完整记录** |
 | [blockers.md](blockers.md) | 想知道什么做不了、为什么、解除条件 |
 | [protocol.md](protocol.md) | 改协议、加帧类型、理解 32 字节帧头 |
 
@@ -70,7 +70,9 @@ H.264 编解码往返 p50 **882 µs**（编码 529 + 解码 398），33ms 帧间
 
 | 文档 | 内容 |
 | --- | --- |
-| [vcam-summary.md](vcam-summary.md) | **总览**：18 个假设的排除表 + 最终判断 |
+| [android.md](android.md) | **Android 端**：Camera2 + MediaCodec 零拷贝、USB 链路、实测数据 |
+| [dshow.md](dshow.md) | **DirectShow 路线**：源滤镜实现、注册表登记、6 个踩坑 |
+| [vcam-summary.md](vcam-summary.md) | **MFCreateVirtualCamera 结案**：19 个假设的排除表 |
 | [vcam-pitfalls.md](vcam-pitfalls.md) | 逐轮踩坑记录 |
 | [vcam-registry.md](vcam-registry.md) | 注册表取证（DeviceClasses / Enum / Properties） |
 | [vcam-sdk-gaps.md](vcam-sdk-gaps.md) | SDK 头文件与官方示例的不一致处 |
@@ -106,6 +108,6 @@ H.264 编解码往返 p50 **882 µs**（编码 529 + 解码 398），33ms 帧间
 
 **想理解 FEC 该不该开**：`fec-link.md` 的「价值边界表」→ `progress.md` 第二十六轮
 
-**想接手虚拟摄像头**：`vcam-summary.md` → `blockers.md` B3 → 直接看 DriverPackage 路线
+**想接手虚拟摄像头**：`dshow.md`（当前可用路线）→ `vcam-summary.md`（为什么放弃 MF 路线）
 
 **想加新功能**：`protocol.md` → `cross-platform.md`（cfg 门控判据）→ `progress.md` 最近的轮次

@@ -687,6 +687,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sidelens-dshow"
+version = "0.1.0"
+dependencies = [
+ "sidelens-ipc",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "sidelens-ipc"
 version = "0.1.0"
 dependencies = [
@@ -769,6 +778,7 @@ dependencies = [
  "sidelens-codec-opus",
  "sidelens-core",
  "sidelens-crypto",
+ "sidelens-dshow",
  "sidelens-ipc",
  "sidelens-proto",
  "sidelens-render",

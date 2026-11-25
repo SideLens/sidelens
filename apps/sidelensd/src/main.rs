@@ -13,7 +13,12 @@
 //! ```
 
 // 平台无关的模块
+mod phone_recv;
 mod udp_server;
+
+// 手机摄像头 → 虚拟摄像头（需要 MF 解码器，仅 Windows）
+#[cfg(windows)]
+mod phone_bridge;
 
 // 仅 Windows：这三个模式都要么直接用 `windows` crate，要么用
 // `sidelens-vcam` / `sidelens-ipc` 的 Windows 实现。
@@ -39,6 +44,12 @@ mod shm_probe;
 mod vcam_probe;
 #[cfg(windows)]
 mod vcam_selfcheck;
+// 隔离实验：逐项对照官方 VCamSample 的调用序列（第十九轮）
+#[cfg(windows)]
+mod vcam_isolate;
+// DirectShow 滤镜验证（第二十轮）
+#[cfg(windows)]
+mod dshow_probe;
 #[cfg(windows)]
 mod video_decode;
 // 状态面板（第五十三轮）。原生 Win32 控件，`SIDELENS_UI=1` 时启用。
@@ -119,6 +130,51 @@ async fn main() -> Result<()> {
     }
 
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    // 手机帧接收端（跨平台）。验证「摄像头 → 编码 → 网络 → 电脑」这条链。
+    //
+    // 单独一个模式而不是复用 udp_server：手机端第一步用的是裸 TCP，
+    // 不带分片/NACK/FEC —— 那些是为弱网设计的，不是为「先跑通」设计的。
+    if let Some(i) = args.iter().position(|a| a == "--phone-recv") {
+        let port: u16 = args
+            .get(i + 1)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(27300);
+        let out = args
+            .iter()
+            .position(|a| a == "--out")
+            .and_then(|j| args.get(j + 1))
+            .map(std::path::PathBuf::from);
+        return phone_recv::run(port, out);
+    }
+
+    // 手机摄像头 → 虚拟摄像头（完整链路）
+    #[cfg(windows)]
+    if let Some(i) = args.iter().position(|a| a == "--phone-to-vcam") {
+        let port: u16 = args
+            .get(i + 1)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(27300);
+        let mut w = 1280u32;
+        let mut h = 720u32;
+        let mut fps = 30u32;
+        if let Some(j) = args.iter().position(|a| a == "--size") {
+            if let Some(s) = args.get(j + 1) {
+                if let Some((a, b)) = s.split_once('x') {
+                    if let (Ok(a), Ok(b)) = (a.parse(), b.parse()) {
+                        w = a;
+                        h = b;
+                    }
+                }
+            }
+        }
+        if let Some(j) = args.iter().position(|a| a == "--fps") {
+            if let Some(f) = args.get(j + 1).and_then(|s| s.parse().ok()) {
+                fps = f;
+            }
+        }
+        return phone_bridge::run(port, w, h, fps);
+    }
 
     // 四个 Windows 专属模式的入口。
     //
@@ -214,6 +270,32 @@ async fn run_windows_mode(args: &[String]) -> Option<Result<()>> {
     // 媒体源自检（绕过 FrameServer，直接按 CLSID 激活）
     if args.iter().any(|a| a == "--vcam-selfcheck") {
         return Some(vcam_selfcheck::run().await);
+    }
+
+    // 隔离实验：逐项对照官方调用序列
+    if args.iter().any(|a| a == "--vcam-isolate") {
+        return Some(vcam_isolate::run().await);
+    }
+
+    // DirectShow 滤镜验证
+    if args.iter().any(|a| a == "--dshow-probe") {
+        return Some(dshow_probe::run());
+    }
+
+    // 手动建图（绕过 RenderStream）
+    if args.iter().any(|a| a == "--dshow-direct") {
+        return Some(dshow_probe::direct_test());
+    }
+
+    // 复刻 OBS 的 RenderStream 建图
+    if args.iter().any(|a| a == "--dshow-render") {
+        return Some(dshow_probe::render_test());
+    }
+
+    // 真的从滤镜拉帧
+    if let Some(i) = args.iter().position(|a| a == "--dshow-grab") {
+        let n: u32 = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(10);
+        return Some(dshow_probe::grab(n));
     }
 
     // 虚拟摄像头验证模式

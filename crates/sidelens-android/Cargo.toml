@@ -1,0 +1,20 @@
+[package]
+name = "sidelens-android"
+description = "SideLens Android 端：Camera2 采集 + JNI 桥接"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "sidelens_android"
+crate-type = ["cdylib"]
+
+[dependencies]
+sidelens-proto = { workspace = true }
+sidelens-core = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+android-activity = { version = "0.6", default-features = false }

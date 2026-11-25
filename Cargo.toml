@@ -19,6 +19,7 @@ members = [
     "crates/sidelens-capture",
     "crates/sidelens-render-gpu",
     "crates/sidelens-ui",
+    "crates/sidelens-dshow",
 ]
 
 [workspace.package]
@@ -43,6 +44,7 @@ sidelens-audio-in = { path = "crates/sidelens-audio-in" }
 sidelens-capture = { path = "crates/sidelens-capture" }
 sidelens-render-gpu = { path = "crates/sidelens-render-gpu" }
 sidelens-ui = { path = "crates/sidelens-ui" }
+sidelens-dshow = { path = "crates/sidelens-dshow" }
 
 serde = "1"
 serde_json = "1"
@@ -73,6 +75,9 @@ windows = { version = "0.62", features = [
     "Win32_System_Registry",
     "Win32_Security",
     "Win32_Media_MediaFoundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_DirectShow",
+    "Win32_UI_Shell_PropertiesSystem",
     "Win32_Media_KernelStreaming",
     "Win32_Storage_FileSystem",
     "Win32_System_Memory",
